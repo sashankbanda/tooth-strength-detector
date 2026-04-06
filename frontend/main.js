@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentImages = [];
     let currentIndex = 0;
+    let reportsByImage = {};
 
     function navigateTo(index) {
         if (index < 0 || index >= currentImages.length) return;
@@ -108,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btnPrev.disabled = currentIndex === 0;
         btnNext.disabled = currentIndex === currentImages.length - 1;
         lucide.createIcons();
+        // Update table to match current image
+        renderTableForImage(currentImages[currentIndex].filename);
     }
 
     btnPrev.addEventListener('click', () => navigateTo(currentIndex - 1));
@@ -152,22 +155,37 @@ document.addEventListener('DOMContentLoaded', () => {
             navigateTo(parseInt(e.target.value));
         });
 
+        // Build per-image report map FIRST so table is ready
+        reportsByImage = {};
+        data.reports.forEach(row => {
+            const fname = row.image_filename;
+            if (!reportsByImage[fname]) reportsByImage[fname] = [];
+            reportsByImage[fname].push(row);
+        });
+
+        // Navigate to first image (table will auto-populate via navigateTo)
         if(currentImages.length > 0) {
             navigateTo(0);
         }
+    }
 
-        // Output Table
+
+    function renderTableForImage(filename) {
         const tbody = document.getElementById('results-tbody');
         tbody.innerHTML = '';
-        
-        data.reports.forEach(row => {
-            const tr = document.createElement('tr');
-            
-            // Badge style derived from strength
-            let badgeClass = 'healthy';
-            if(row.strength < 50) badgeClass = 'danger';
-            else if(row.strength < 75) badgeClass = 'warning';
 
+        const rows = reportsByImage[filename] || [];
+
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:2rem;">No tooth data for this image.</td></tr>';
+            return;
+        }
+
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            let badgeClass = 'healthy';
+            if (row.strength < 50) badgeClass = 'danger';
+            else if (row.strength < 75) badgeClass = 'warning';
             tr.innerHTML = `
                 <td><strong>${row.FDI}</strong></td>
                 <td>${row.strength}%</td>
