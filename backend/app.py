@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -139,6 +139,12 @@ def get_public_config():
     return {
         "google_client_id": GOOGLE_CLIENT_ID,
     }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    # Avoid noisy browser 404 logs when no favicon file is provided.
+    return Response(status_code=204)
 
 @app.get("/")
 async def root():

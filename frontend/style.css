@@ -84,6 +84,12 @@ body {
     font-weight: 700;
     font-size: 1.5rem;
     letter-spacing: -0.02em;
+    cursor: pointer;
+    transition: var(--trn-fast);
+}
+
+.logo:hover {
+    opacity: 0.9;
 }
 
 .logo svg {
@@ -251,6 +257,18 @@ body {
     border-radius: 0.75rem;
     padding: 0.8rem;
     background: rgba(255, 255, 255, 0.01);
+    cursor: pointer;
+    transition: var(--trn-fast);
+}
+
+.history-item:hover {
+    border-color: rgba(69, 243, 255, 0.35);
+    background: rgba(69, 243, 255, 0.06);
+}
+
+.history-item:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
 }
 
 .history-item h4 {

@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnPrev = document.getElementById('prev-btn');
     const btnNext = document.getElementById('next-btn');
     const imageCounter = document.getElementById('image-counter');
+    const homeLogo = document.getElementById('home-logo');
 
     let currentImages = [];
     let currentIndex = 0;
@@ -68,6 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return {};
         }
         return { Authorization: `Bearer ${authToken}` };
+    }
+
+    function ensureCanonicalLocalhost() {
+        if (window.location.hostname !== '127.0.0.1') {
+            return false;
+        }
+
+        const redirectUrl = `${window.location.protocol}//localhost${window.location.port ? `:${window.location.port}` : ''}${window.location.pathname}${window.location.search}${window.location.hash}`;
+        window.location.replace(redirectUrl);
+        return true;
     }
 
     async function fetchPublicConfig() {
@@ -210,6 +221,27 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionHistory.classList.remove('hidden');
     }
 
+    async function openHistorySession(jobId) {
+        const res = await fetch(`/api/history/${encodeURIComponent(jobId)}`, {
+            headers: getAuthHeaders(),
+        });
+
+        if (res.status === 401) {
+            clearSession();
+            setAuthMessage('Session expired. Please sign in again.', true);
+            showAuthGate();
+            return;
+        }
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(payload.detail || 'Unable to open saved analysis.');
+        }
+
+        renderDashboard(payload);
+        sectionDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function renderHistory(items) {
         historyList.innerHTML = '';
 
@@ -238,6 +270,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${item.pdf_url ? `<a href="${item.pdf_url}" target="_blank">PDF</a>` : ''}
                 </div>
             `;
+
+            li.addEventListener('click', async (event) => {
+                if (event.target.closest('a')) {
+                    return;
+                }
+                try {
+                    await openHistorySession(item.job_id);
+                } catch (err) {
+                    alert(err.message || 'Failed to load saved analysis.');
+                }
+            });
+
+            li.addEventListener('keydown', async (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') {
+                    return;
+                }
+                event.preventDefault();
+                try {
+                    await openHistorySession(item.job_id);
+                } catch (err) {
+                    alert(err.message || 'Failed to load saved analysis.');
+                }
+            });
+
+            li.tabIndex = 0;
+            li.setAttribute('role', 'button');
+            li.setAttribute('aria-label', `Open saved analysis ${item.source_filename}`);
             historyList.appendChild(li);
         });
     }
@@ -383,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionDashboard.classList.remove('hidden');
 
         const saveNote = data.history_saved ? 'Saved to history' : (currentUser ? 'History save skipped' : 'Guest mode');
-        document.getElementById('job-id-display').innerText = `Job ID: ${data.job_id.substring(0, 8)} · ${saveNote}`;
+        document.getElementById('job-id-display').innerText = `Job ID: ${data.job_id.substring(0, 8)} - ${saveNote}`;
         document.getElementById('download-pdf-btn').href = data.pdf_url || '#';
         document.getElementById('download-csv-btn').href = data.csv_url || '#';
 
@@ -464,6 +523,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sectionUpload.classList.add('hidden');
             sectionAuth.classList.remove('hidden');
         }
+
+        sectionUpload.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     btnReset.addEventListener('click', resetView);
@@ -479,9 +540,16 @@ document.addEventListener('DOMContentLoaded', () => {
         showAuthGate();
     });
     btnRefreshHistory.addEventListener('click', refreshHistory);
+    homeLogo.addEventListener('click', () => {
+        resetView();
+    });
 
     async function bootstrap() {
         try {
+            if (ensureCanonicalLocalhost()) {
+                return;
+            }
+
             await fetchPublicConfig();
             const restored = await restoreSession();
             await initializeGoogleSignIn();
