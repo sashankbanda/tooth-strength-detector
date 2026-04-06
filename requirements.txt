@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+inference-sdk
+opencv-python
+pandas
+reportlab
+matplotlib
+seaborn
+python-multipart
+python-dotenv
