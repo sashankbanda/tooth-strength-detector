@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // UI Binding
     const btnReset = document.getElementById('reset-btn');
     const imageSelect = document.getElementById('image-select');
+    const btnPrev = document.getElementById('prev-btn');
+    const btnNext = document.getElementById('next-btn');
+    const imageCounter = document.getElementById('image-counter');
     
     // Prevention of defaults
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -94,6 +97,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentImages = [];
+    let currentIndex = 0;
+
+    function navigateTo(index) {
+        if (index < 0 || index >= currentImages.length) return;
+        currentIndex = index;
+        imageSelect.value = currentIndex;
+        setVisualImage(currentImages[currentIndex].url);
+        imageCounter.textContent = `${currentIndex + 1} / ${currentImages.length}`;
+        btnPrev.disabled = currentIndex === 0;
+        btnNext.disabled = currentIndex === currentImages.length - 1;
+        lucide.createIcons();
+    }
+
+    btnPrev.addEventListener('click', () => navigateTo(currentIndex - 1));
+    btnNext.addEventListener('click', () => navigateTo(currentIndex + 1));
+
+    // Keyboard arrow key navigation
+    document.addEventListener('keydown', (e) => {
+        if (sectionDashboard.classList.contains('hidden')) return;
+        if (e.key === 'ArrowLeft') navigateTo(currentIndex - 1);
+        if (e.key === 'ArrowRight') navigateTo(currentIndex + 1);
+    });
 
     function renderDashboard(data) {
         sectionUpload.classList.add('hidden');
@@ -114,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Images Setup
         currentImages = data.images;
+        currentIndex = 0;
         imageSelect.innerHTML = '';
         currentImages.forEach((imgObj, index) => {
             const opt = document.createElement('option');
@@ -123,12 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         imageSelect.addEventListener('change', (e) => {
-            const idx = e.target.value;
-            setVisualImage(currentImages[idx].url);
+            navigateTo(parseInt(e.target.value));
         });
 
         if(currentImages.length > 0) {
-            setVisualImage(currentImages[0].url);
+            navigateTo(0);
         }
 
         // Output Table

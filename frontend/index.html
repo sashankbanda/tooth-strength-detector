@@ -114,8 +114,14 @@
                             <div class="image-viewer-header">
                                 <h4 class="card-title">Detection Visualizer</h4>
                                 <div class="image-selector">
-                                    <label for="image-select">View Image:</label>
+                                    <button id="prev-btn" class="nav-btn" title="Previous Image">
+                                        <i data-lucide="chevron-left"></i>
+                                    </button>
+                                    <span id="image-counter" class="image-counter">1 / 1</span>
                                     <select id="image-select"></select>
+                                    <button id="next-btn" class="nav-btn" title="Next Image">
+                                        <i data-lucide="chevron-right"></i>
+                                    </button>
                                 </div>
                             </div>
                             <div class="image-display-container">
