@@ -8,3 +8,7 @@ matplotlib
 seaborn
 python-multipart
 python-dotenv
+sqlalchemy
+psycopg[binary]
+google-auth
+python-jose[cryptography]

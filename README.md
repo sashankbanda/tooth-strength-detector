@@ -35,14 +35,26 @@ Follow these simple steps from your terminal/command prompt to run the web appli
    pip install -r requirements.txt
    ```
 
-4. **Start the Application Server**:
+4. **Configure environment variables (`.env`)**:
+   Add these keys before running the app:
+   ```env
+   ROBOFLOW_API_KEY=your_roboflow_key
+   DATABASE_URL=postgresql://...
+   GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+   JWT_SECRET_KEY=your_secret_key
+   ACCESS_TOKEN_EXPIRE_MINUTES=10080
+   ```
+   - `DATABASE_URL` can point to Neon/PostgreSQL serverless.
+   - If no `DATABASE_URL` is provided, the app falls back to local SQLite.
+
+5. **Start the Application Server**:
    Once installed, run this command to turn on the FastAPI server locally:
    ```bash
    uvicorn backend.app:app --reload --port 8000
    ```
    You should see: `Uvicorn running on http://127.0.0.1:8000`
 
-5. **Open the App in your Web Browser**:
+6. **Open the App in your Web Browser**:
    Open Google Chrome, Edge or Firefox and go to:
    **[http://localhost:8000](http://localhost:8000)**
 
@@ -54,17 +66,22 @@ Follow these simple steps from your terminal/command prompt to run the web appli
 
 Using the application is designed to be as simple as possible:
 
-1. **Upload your X-rays**
+1. **Choose access mode**
+   - **Continue as Guest**: run analysis without saving history.
+   - **Sign in with Google**: verifies Google token, creates a user, and saves analysis history.
+
+2. **Upload your X-rays**
    - On the homepage, simply drag and drop a **`.zip` file** (containing multiple images) or a **single image file** (`.jpg`, `.png`).
    - *Note:* Depending on how many images you upload, processing may take a few seconds as the engine calculates algorithms for each detected tooth.
 
-2. **View the Dashboard Results**
+3. **View the Dashboard Results**
    - Once processed, the interface will automatically transition to your analysis dashboard.
    - **Metrics Panels**: View overall statistics, Stage distribution charts, and Strength distribution charts.
    - **Visualizer**: Select between different images processed in the drop-down menu on the right. You will see colored bounding boxes with numerical scores overlaying the teeth.
    - **Details Table**: Review the itemized data breaking down Health Status, FDI numbering, and classification stage for each detected tooth.
+   - Signed-in users also see **saved analysis history** in the app.
 
-3. **Exporting Reports**
+4. **Exporting Reports**
    - At the top of your dashboard, click **"Download Full PDF Report"** to secure a generated PDF compiling your stage statistics.
    - Click **"Export CSV"** to download raw spreadsheet data of your metrics.
    - Click **"New Scan"** to securely wipe your current view and upload a new X-ray batch.

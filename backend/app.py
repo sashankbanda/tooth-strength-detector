@@ -1,12 +1,21 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from typing import Optional
+
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 import uuid
+from sqlalchemy.orm import Session
 
+from backend.auth import get_optional_current_user
+from backend.config import GOOGLE_CLIENT_ID
+from backend.database import get_db, init_db
+from backend.models import AnalysisSession, ToothRecord, User
 from backend.processor import ToothProcessor
+from backend.routes.google_auth import router as google_auth_router
+from backend.routes.history_routes import router as history_router
 
 app = FastAPI(title="Tooth Strength Detector API")
 
@@ -28,9 +37,61 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 processor = ToothProcessor(output_dir=OUTPUT_DIR)
 
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+
+def persist_analysis_session(
+    db: Session,
+    user: User,
+    source_filename: str,
+    result_data: dict,
+) -> None:
+    summary = result_data.get("summary") or {}
+    reports = result_data.get("reports") or []
+
+    session = AnalysisSession(
+        user_id=user.id,
+        job_id=result_data.get("job_id", str(uuid.uuid4())),
+        source_filename=source_filename,
+        total_images=int(summary.get("total_images") or 0),
+        total_teeth=int(summary.get("total_teeth") or 0),
+        csv_url=result_data.get("csv_url"),
+        pdf_url=result_data.get("pdf_url"),
+    )
+    db.add(session)
+    db.flush()
+
+    for row in reports:
+        fdi_value = row.get("FDI")
+        strength_value = row.get("strength")
+        stage_value = row.get("stage")
+        image_filename = row.get("image_filename") or source_filename
+
+        if fdi_value is None or strength_value is None or stage_value is None:
+            continue
+
+        db.add(
+            ToothRecord(
+                session_id=session.id,
+                image_filename=str(image_filename),
+                fdi=int(fdi_value),
+                strength=float(strength_value),
+                stage=str(stage_value),
+            )
+        )
+
+    db.commit()
+
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    if not file.filename.lower().endswith(('.zip', '.jpg', '.jpeg', '.png')):
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    if not file.filename or not file.filename.lower().endswith(('.zip', '.jpg', '.jpeg', '.png')):
         raise HTTPException(status_code=400, detail="Invalid file type. Upload a ZIP containing images or an image file (.jpg, .png).")
         
     temp_dir = os.path.join(OUTPUT_DIR, "temp_uploads")
@@ -59,14 +120,35 @@ async def upload_file(file: UploadFile = File(...)):
             os.remove(temp_file_path)
         except:
             pass
-            
+
+    history_saved = False
+    if current_user is not None:
+        try:
+            persist_analysis_session(db, current_user, file.filename, results)
+            history_saved = True
+        except Exception:
+            db.rollback()
+
+    results["history_saved"] = history_saved
+    results["is_authenticated"] = current_user is not None
+
     return JSONResponse(content={"status": "success", "data": results})
+
+@app.get("/api/config")
+def get_public_config():
+    return {
+        "google_client_id": GOOGLE_CLIENT_ID,
+    }
 
 @app.get("/")
 async def root():
     # The actual HTML is served through /static/index.html, but we can redirect / or serve it
     from fastapi.responses import FileResponse
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+app.include_router(google_auth_router)
+app.include_router(history_router)
 
 if __name__ == "__main__":
     import uvicorn

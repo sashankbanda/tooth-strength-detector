@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="/static/style.css">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     
@@ -21,17 +23,40 @@
                 <i data-lucide="activity"></i>
                 <h1>Odonto<span class="highlight">Metrics</span></h1>
             </div>
-            <div class="status-indicator">
-                <span class="dot online"></span>
-                <span>Roboflow Engine Ready</span>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="dot online"></span>
+                    <span>Roboflow Engine Ready</span>
+                </div>
+                <div id="user-chip" class="user-chip hidden">
+                    <img id="user-avatar" src="" alt="User profile" />
+                    <div>
+                        <p id="user-name">Guest</p>
+                        <span id="user-email"></span>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn outline-btn hidden">Logout</button>
             </div>
         </header>
 
         <!-- Main Content -->
         <main class="app-main">
+
+            <!-- Auth Section -->
+            <section id="auth-section" class="section-active">
+                <div class="glass-card auth-card">
+                    <h2>Welcome to OdontoMetrics</h2>
+                    <p>Continue as guest for one-off analysis, or sign in with Google to save your analysis history.</p>
+                    <div class="auth-actions">
+                        <button id="continue-guest-btn" class="btn secondary-btn">Continue as Guest</button>
+                        <div id="google-signin-container"></div>
+                    </div>
+                    <p id="auth-message" class="auth-message"></p>
+                </div>
+            </section>
             
             <!-- Upload Section -->
-            <section id="upload-section" class="section-active">
+            <section id="upload-section" class="hidden">
                 <div class="hero-text">
                     <h2>Advanced Periodontal Diagnostics.</h2>
                     <p>Upload a standalone X-ray image or a ZIP containing multiple images to evaluate tooth strength and radiographic bone loss instantly.</p>
@@ -55,6 +80,20 @@
                     <div class="progress-bar-container">
                         <div class="progress-bar"></div>
                     </div>
+                </div>
+            </section>
+
+            <section id="history-section" class="hidden">
+                <div class="glass-card history-card">
+                    <div class="history-header">
+                        <h3>Saved Analysis History</h3>
+                        <button id="refresh-history-btn" class="btn secondary-btn">
+                            <i data-lucide="refresh-ccw"></i>
+                            Refresh
+                        </button>
+                    </div>
+                    <p id="history-empty" class="history-empty">No saved analyses yet.</p>
+                    <ul id="history-list" class="history-list"></ul>
                 </div>
             </section>
 
