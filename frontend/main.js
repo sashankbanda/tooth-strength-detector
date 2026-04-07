@@ -821,7 +821,10 @@ document.addEventListener('DOMContentLoaded', () => {
             li.innerHTML = `
                 <div class="history-item-content">
                     <h4>${item.source_filename}</h4>
-                    <p>${createdAt}</p>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <p>${createdAt}</p>
+                        <span class="file-hint" style="margin:0; font-size:0.7rem; padding: 0.1rem 0.5rem;">${item.size_mb} MB</span>
+                    </div>
                 </div>
                 <div class="history-metrics">
                     <span>${item.total_images} images</span>

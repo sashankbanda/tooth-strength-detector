@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
@@ -66,6 +67,16 @@ def _build_session_payload(item: AnalysisSession) -> dict:
     }
 
 
+def _get_dir_size(directory: Path) -> float:
+    """Calculate the total size of a directory in MB."""
+    total_size = 0
+    if directory.exists() and directory.is_dir():
+        for path in directory.rglob("*"):
+            if path.is_file():
+                total_size += path.stat().st_size
+    return round(total_size / (1024 * 1024), 2)
+
+
 @router.get("")
 def get_history(
     limit: int = 20,
@@ -92,6 +103,7 @@ def get_history(
                 "pdf_url": item.pdf_url,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "records_count": len(item.tooth_records),
+                "size_mb": _get_dir_size(OUTPUT_DIR / item.job_id),
             }
             for item in sessions
         ]
