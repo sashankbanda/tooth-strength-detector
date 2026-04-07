@@ -31,6 +31,9 @@ from backend.routes.history_routes import router as history_router
 logger = logging.getLogger(__name__)
 ALLOWED_UPLOAD_EXTENSIONS = (".zip", ".jpg", ".jpeg", ".png")
 
+# Ensure directories exist before mounting static/output paths
+ensure_runtime_directories()
+
 app = FastAPI(title="Tooth Strength Detector API")
 app.add_middleware(
     CORSMiddleware,
@@ -115,8 +118,6 @@ async def upload_file(
             status_code=400,
             detail="Invalid file type. Upload a ZIP containing images or an image file (.jpg, .png).",
         )
-
-    ensure_runtime_directories()
 
     # Storage Quota Check
     from backend.config import STORAGE_QUOTA_MB
