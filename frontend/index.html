@@ -151,20 +151,58 @@
                     <div class="visualizer-column">
                         <div class="glass-card image-viewer-card">
                             <div class="image-viewer-header">
-                                <h4 class="card-title">Detection Visualizer</h4>
+                                <div class="viewer-heading">
+                                    <h4 class="card-title">Detection Visualizer</h4>
+                                    <p class="viewer-subtitle">Zoom, inspect, and maximize the annotated scan.</p>
+                                </div>
+                                <button id="maximize-btn" class="viewer-action-btn" type="button" title="Maximize visualizer" aria-pressed="false">
+                                    <i data-lucide="maximize-2"></i>
+                                    <span>Maximize</span>
+                                </button>
+                            </div>
+                            <div class="viewer-toolbar">
+                                <div class="zoom-controls" role="group" aria-label="Zoom controls">
+                                    <button id="zoom-out-btn" class="viewer-action-btn compact" type="button" title="Zoom out">
+                                        <i data-lucide="zoom-out"></i>
+                                    </button>
+                                    <button id="zoom-reset-btn" class="viewer-action-btn zoom-readout" type="button" title="Reset zoom">
+                                        100%
+                                    </button>
+                                    <button id="zoom-in-btn" class="viewer-action-btn compact" type="button" title="Zoom in">
+                                        <i data-lucide="zoom-in"></i>
+                                    </button>
+                                </div>
+                                <label class="lens-control" for="lens-toggle">
+                                    <input id="lens-toggle" type="checkbox" />
+                                    <span class="lens-switch" aria-hidden="true">
+                                        <span class="lens-switch-thumb"></span>
+                                    </span>
+                                    <span class="lens-copy">
+                                        <strong>Hover lens</strong>
+                                        <small>Toggle magnification</small>
+                                    </span>
+                                </label>
                                 <div class="image-selector">
-                                    <button id="prev-btn" class="nav-btn" title="Previous Image">
+                                    <button id="prev-btn" class="nav-btn" type="button" title="Previous Image">
                                         <i data-lucide="chevron-left"></i>
                                     </button>
                                     <span id="image-counter" class="image-counter">1 / 1</span>
                                     <select id="image-select"></select>
-                                    <button id="next-btn" class="nav-btn" title="Next Image">
+                                    <button id="next-btn" class="nav-btn" type="button" title="Next Image">
                                         <i data-lucide="chevron-right"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="image-display-container">
-                                <img id="visual-image-display" src="" alt="Detected annotated X-Ray"/>
+                            <div id="image-display-container" class="image-display-container">
+                                <div id="image-stage-surface" class="image-stage-surface">
+                                    <img id="visual-image-display" src="" alt="Detected annotated X-Ray"/>
+                                </div>
+                                <div id="magnifier-lens" class="magnifier-lens hidden" aria-hidden="true">
+                                    <div class="magnifier-lens-inner"></div>
+                                </div>
+                                <div class="viewer-hint">
+                                    <span>Scroll or use controls to zoom. Drag to pan when zoomed.</span>
+                                </div>
                             </div>
                         </div>
 

@@ -33,10 +33,287 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnNext = document.getElementById('next-btn');
     const imageCounter = document.getElementById('image-counter');
     const homeLogo = document.getElementById('home-logo');
+    const imageViewerCard = document.querySelector('.image-viewer-card');
+    const imageDisplayContainer = document.getElementById('image-display-container');
+    const imageStageSurface = document.getElementById('image-stage-surface');
+    const visualImageDisplay = document.getElementById('visual-image-display');
+    const btnZoomOut = document.getElementById('zoom-out-btn');
+    const btnZoomReset = document.getElementById('zoom-reset-btn');
+    const btnZoomIn = document.getElementById('zoom-in-btn');
+    const btnMaximize = document.getElementById('maximize-btn');
+    const lensToggle = document.getElementById('lens-toggle');
+    const magnifierLens = document.getElementById('magnifier-lens');
 
     let currentImages = [];
     let currentIndex = 0;
     let reportsByImage = {};
+    const viewerState = {
+        scale: 1,
+        minScale: 1,
+        maxScale: 5,
+        zoomStep: 0.25,
+        panX: 0,
+        panY: 0,
+        baseLeft: 0,
+        baseTop: 0,
+        baseWidth: 0,
+        baseHeight: 0,
+        naturalWidth: 0,
+        naturalHeight: 0,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        lensEnabled: false,
+        lensZoom: 2.6,
+        pointerX: 0,
+        pointerY: 0,
+        maximized: false,
+        syncFrame: null,
+    };
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function getContainerCenter() {
+        return {
+            x: imageDisplayContainer.clientWidth / 2,
+            y: imageDisplayContainer.clientHeight / 2,
+        };
+    }
+
+    function getTransformedStageRect() {
+        const width = viewerState.baseWidth * viewerState.scale;
+        const height = viewerState.baseHeight * viewerState.scale;
+        return {
+            left: viewerState.baseLeft + viewerState.panX - ((width - viewerState.baseWidth) / 2),
+            top: viewerState.baseTop + viewerState.panY - ((height - viewerState.baseHeight) / 2),
+            width,
+            height,
+        };
+    }
+
+    function isPointOnImage(x, y) {
+        if (!viewerState.baseWidth || !viewerState.baseHeight) {
+            return false;
+        }
+
+        const rect = getTransformedStageRect();
+        return (
+            x >= rect.left &&
+            x <= rect.left + rect.width &&
+            y >= rect.top &&
+            y <= rect.top + rect.height
+        );
+    }
+
+    function hideMagnifier() {
+        magnifierLens.classList.add('hidden');
+        imageDisplayContainer.classList.remove('lens-active');
+    }
+
+    function clampPanOffsets() {
+        if (viewerState.scale <= 1.001 || !viewerState.baseWidth || !viewerState.baseHeight) {
+            viewerState.panX = 0;
+            viewerState.panY = 0;
+            return;
+        }
+
+        const containerWidth = imageDisplayContainer.clientWidth;
+        const containerHeight = imageDisplayContainer.clientHeight;
+        const maxPanX = Math.max(0, ((viewerState.baseWidth * viewerState.scale) - containerWidth) / 2);
+        const maxPanY = Math.max(0, ((viewerState.baseHeight * viewerState.scale) - containerHeight) / 2);
+
+        viewerState.panX = clamp(viewerState.panX, -maxPanX, maxPanX);
+        viewerState.panY = clamp(viewerState.panY, -maxPanY, maxPanY);
+    }
+
+    function updateViewerCursorState() {
+        imageDisplayContainer.classList.toggle(
+            'is-zoomable',
+            viewerState.scale > 1.001 && !viewerState.isDragging && !viewerState.lensEnabled
+        );
+        imageDisplayContainer.classList.toggle('is-dragging', viewerState.isDragging);
+        imageDisplayContainer.classList.toggle(
+            'lens-active',
+            viewerState.lensEnabled && !viewerState.isDragging && !magnifierLens.classList.contains('hidden')
+        );
+    }
+
+    function updateViewerButtons() {
+        btnZoomReset.textContent = `${Math.round(viewerState.scale * 100)}%`;
+        btnZoomOut.disabled = viewerState.scale <= viewerState.minScale;
+        btnZoomIn.disabled = viewerState.scale >= viewerState.maxScale;
+        updateViewerCursorState();
+    }
+
+    function updateStageTransform() {
+        clampPanOffsets();
+        imageStageSurface.style.transform = `translate3d(${viewerState.panX}px, ${viewerState.panY}px, 0) scale(${viewerState.scale})`;
+        updateViewerButtons();
+
+        if (viewerState.lensEnabled && !viewerState.isDragging && !magnifierLens.classList.contains('hidden')) {
+            updateMagnifier(viewerState.pointerX, viewerState.pointerY);
+        }
+    }
+
+    function syncStageGeometry() {
+        if (!visualImageDisplay.complete || !visualImageDisplay.naturalWidth) {
+            return;
+        }
+
+        const containerWidth = imageDisplayContainer.clientWidth;
+        const containerHeight = imageDisplayContainer.clientHeight;
+
+        if (!containerWidth || !containerHeight) {
+            return;
+        }
+
+        const naturalWidth = visualImageDisplay.naturalWidth;
+        const naturalHeight = visualImageDisplay.naturalHeight;
+        const imageRatio = naturalWidth / naturalHeight;
+        const containerRatio = containerWidth / containerHeight;
+
+        let fittedWidth = containerWidth;
+        let fittedHeight = containerHeight;
+
+        if (imageRatio > containerRatio) {
+            fittedHeight = fittedWidth / imageRatio;
+        } else {
+            fittedWidth = fittedHeight * imageRatio;
+        }
+
+        viewerState.baseWidth = fittedWidth;
+        viewerState.baseHeight = fittedHeight;
+        viewerState.baseLeft = (containerWidth - fittedWidth) / 2;
+        viewerState.baseTop = (containerHeight - fittedHeight) / 2;
+        viewerState.naturalWidth = naturalWidth;
+        viewerState.naturalHeight = naturalHeight;
+
+        imageStageSurface.style.left = `${viewerState.baseLeft}px`;
+        imageStageSurface.style.top = `${viewerState.baseTop}px`;
+        imageStageSurface.style.width = `${viewerState.baseWidth}px`;
+        imageStageSurface.style.height = `${viewerState.baseHeight}px`;
+        magnifierLens.style.backgroundImage = `url("${visualImageDisplay.currentSrc || visualImageDisplay.src}")`;
+
+        updateStageTransform();
+    }
+
+    function scheduleStageSync() {
+        if (viewerState.syncFrame) {
+            cancelAnimationFrame(viewerState.syncFrame);
+        }
+
+        viewerState.syncFrame = requestAnimationFrame(() => {
+            viewerState.syncFrame = null;
+            syncStageGeometry();
+        });
+    }
+
+    function resetViewerTransforms() {
+        viewerState.scale = 1;
+        viewerState.panX = 0;
+        viewerState.panY = 0;
+        viewerState.isDragging = false;
+        hideMagnifier();
+        updateViewerButtons();
+    }
+
+    function setZoom(nextScale, anchorX = null, anchorY = null) {
+        const targetScale = clamp(nextScale, viewerState.minScale, viewerState.maxScale);
+
+        if (!viewerState.baseWidth || !viewerState.baseHeight) {
+            viewerState.scale = targetScale;
+            updateViewerButtons();
+            return;
+        }
+
+        const center = getContainerCenter();
+        const focusX = anchorX ?? center.x;
+        const focusY = anchorY ?? center.y;
+        const currentRect = getTransformedStageRect();
+
+        if (!currentRect.width || !currentRect.height) {
+            viewerState.scale = targetScale;
+            updateStageTransform();
+            return;
+        }
+
+        const relativeX = clamp((focusX - currentRect.left) / currentRect.width, 0, 1);
+        const relativeY = clamp((focusY - currentRect.top) / currentRect.height, 0, 1);
+
+        viewerState.scale = targetScale;
+
+        if (targetScale <= 1.001) {
+            viewerState.panX = 0;
+            viewerState.panY = 0;
+        } else {
+            const newWidth = viewerState.baseWidth * targetScale;
+            const newHeight = viewerState.baseHeight * targetScale;
+            const newLeft = focusX - (relativeX * newWidth);
+            const newTop = focusY - (relativeY * newHeight);
+
+            viewerState.panX = newLeft - viewerState.baseLeft + ((newWidth - viewerState.baseWidth) / 2);
+            viewerState.panY = newTop - viewerState.baseTop + ((newHeight - viewerState.baseHeight) / 2);
+        }
+
+        updateStageTransform();
+    }
+
+    function updateMagnifier(containerX, containerY) {
+        viewerState.pointerX = containerX;
+        viewerState.pointerY = containerY;
+
+        if (!viewerState.lensEnabled || viewerState.isDragging || !isPointOnImage(containerX, containerY)) {
+            hideMagnifier();
+            updateViewerCursorState();
+            return;
+        }
+
+        const rect = getTransformedStageRect();
+        const lensSize = magnifierLens.offsetWidth || 170;
+        const lensRadius = lensSize / 2;
+        const relativeX = (containerX - rect.left) / rect.width;
+        const relativeY = (containerY - rect.top) / rect.height;
+        const backgroundWidth = rect.width * viewerState.lensZoom;
+        const backgroundHeight = rect.height * viewerState.lensZoom;
+        const backgroundX = relativeX * backgroundWidth;
+        const backgroundY = relativeY * backgroundHeight;
+        const left = clamp(containerX - lensRadius, 12, imageDisplayContainer.clientWidth - lensSize - 12);
+        const top = clamp(containerY - lensRadius, 12, imageDisplayContainer.clientHeight - lensSize - 12);
+
+        magnifierLens.style.left = `${left}px`;
+        magnifierLens.style.top = `${top}px`;
+        magnifierLens.style.backgroundSize = `${backgroundWidth}px ${backgroundHeight}px`;
+        magnifierLens.style.backgroundPosition = `${lensRadius - backgroundX}px ${lensRadius - backgroundY}px`;
+        magnifierLens.classList.remove('hidden');
+        updateViewerCursorState();
+    }
+
+    function setMagnifierEnabled(enabled) {
+        viewerState.lensEnabled = enabled;
+
+        if (!enabled) {
+            hideMagnifier();
+        } else {
+            updateMagnifier(viewerState.pointerX, viewerState.pointerY);
+        }
+
+        updateViewerCursorState();
+    }
+
+    function setMaximized(enabled) {
+        viewerState.maximized = enabled;
+        imageViewerCard.classList.toggle('is-maximized', enabled);
+        document.body.classList.toggle('viewer-maximized', enabled);
+        btnMaximize.setAttribute('aria-pressed', String(enabled));
+        btnMaximize.innerHTML = enabled
+            ? '<i data-lucide="minimize-2"></i><span>Restore</span>'
+            : '<i data-lucide="maximize-2"></i><span>Maximize</span>';
+        hideMagnifier();
+        lucide.createIcons();
+        scheduleStageSync();
+    }
 
     function setAuthMessage(message, isError = false) {
         authMessage.textContent = message || '';
@@ -424,6 +701,111 @@ document.addEventListener('DOMContentLoaded', () => {
     imageSelect.addEventListener('change', (e) => {
         navigateTo(parseInt(e.target.value, 10));
     });
+    btnZoomOut.addEventListener('click', () => {
+        setZoom(viewerState.scale - viewerState.zoomStep);
+    });
+    btnZoomIn.addEventListener('click', () => {
+        setZoom(viewerState.scale + viewerState.zoomStep);
+    });
+    btnZoomReset.addEventListener('click', () => {
+        setZoom(1);
+    });
+    btnMaximize.addEventListener('click', () => {
+        setMaximized(!viewerState.maximized);
+    });
+    lensToggle.addEventListener('change', (event) => {
+        setMagnifierEnabled(event.target.checked);
+    });
+    visualImageDisplay.addEventListener('load', () => {
+        resetViewerTransforms();
+        scheduleStageSync();
+    });
+    window.addEventListener('resize', scheduleStageSync);
+
+    imageDisplayContainer.addEventListener('wheel', (event) => {
+        if (!viewerState.baseWidth) {
+            return;
+        }
+
+        event.preventDefault();
+        const rect = imageDisplayContainer.getBoundingClientRect();
+        const anchorX = event.clientX - rect.left;
+        const anchorY = event.clientY - rect.top;
+        const delta = event.deltaY < 0 ? viewerState.zoomStep : -viewerState.zoomStep;
+
+        setZoom(viewerState.scale + delta, anchorX, anchorY);
+    }, { passive: false });
+
+    imageDisplayContainer.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
+        const rect = imageDisplayContainer.getBoundingClientRect();
+        const pointerX = event.clientX - rect.left;
+        const pointerY = event.clientY - rect.top;
+
+        viewerState.pointerX = pointerX;
+        viewerState.pointerY = pointerY;
+
+        if (viewerState.scale <= 1.001 || !isPointOnImage(pointerX, pointerY)) {
+            updateMagnifier(pointerX, pointerY);
+            return;
+        }
+
+        viewerState.isDragging = true;
+        viewerState.dragStartX = event.clientX - viewerState.panX;
+        viewerState.dragStartY = event.clientY - viewerState.panY;
+        imageDisplayContainer.setPointerCapture(event.pointerId);
+        hideMagnifier();
+        updateViewerCursorState();
+    });
+
+    imageDisplayContainer.addEventListener('pointermove', (event) => {
+        const rect = imageDisplayContainer.getBoundingClientRect();
+        const pointerX = event.clientX - rect.left;
+        const pointerY = event.clientY - rect.top;
+
+        viewerState.pointerX = pointerX;
+        viewerState.pointerY = pointerY;
+
+        if (viewerState.isDragging) {
+            viewerState.panX = event.clientX - viewerState.dragStartX;
+            viewerState.panY = event.clientY - viewerState.dragStartY;
+            updateStageTransform();
+            return;
+        }
+
+        updateMagnifier(pointerX, pointerY);
+    });
+
+    function finishPointerInteraction(event) {
+        if (!viewerState.isDragging) {
+            return;
+        }
+
+        viewerState.isDragging = false;
+
+        if (imageDisplayContainer.hasPointerCapture(event.pointerId)) {
+            imageDisplayContainer.releasePointerCapture(event.pointerId);
+        }
+
+        updateViewerCursorState();
+
+        const rect = imageDisplayContainer.getBoundingClientRect();
+        const pointerX = typeof event.clientX === 'number' ? event.clientX - rect.left : viewerState.pointerX;
+        const pointerY = typeof event.clientY === 'number' ? event.clientY - rect.top : viewerState.pointerY;
+        updateMagnifier(pointerX, pointerY);
+    }
+
+    imageDisplayContainer.addEventListener('pointerup', finishPointerInteraction);
+    imageDisplayContainer.addEventListener('pointercancel', finishPointerInteraction);
+    imageDisplayContainer.addEventListener('pointerleave', () => {
+        if (!viewerState.isDragging) {
+            hideMagnifier();
+            updateViewerCursorState();
+        }
+    });
 
     document.addEventListener('keydown', (e) => {
         if (sectionDashboard.classList.contains('hidden')) {
@@ -434,6 +816,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (e.key === 'ArrowRight') {
             navigateTo(currentIndex + 1);
+        }
+        if (e.key === '+' || e.key === '=') {
+            setZoom(viewerState.scale + viewerState.zoomStep);
+        }
+        if (e.key === '-' || e.key === '_') {
+            setZoom(viewerState.scale - viewerState.zoomStep);
+        }
+        if (e.key === '0') {
+            setZoom(1);
+        }
+        if (e.key === 'Escape' && viewerState.maximized) {
+            setMaximized(false);
         }
     });
 
@@ -473,6 +867,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (currentImages.length > 0) {
             navigateTo(0);
+        } else {
+            imageCounter.textContent = '0 / 0';
+            setVisualImage('');
         }
     }
 
@@ -506,10 +903,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setVisualImage(url) {
-        document.getElementById('visual-image-display').src = url;
+        hideMagnifier();
+
+        if (!url) {
+            visualImageDisplay.removeAttribute('src');
+            viewerState.baseWidth = 0;
+            viewerState.baseHeight = 0;
+            viewerState.baseLeft = 0;
+            viewerState.baseTop = 0;
+            resetViewerTransforms();
+            return;
+        }
+
+        if (visualImageDisplay.getAttribute('src') === url && visualImageDisplay.complete) {
+            resetViewerTransforms();
+            scheduleStageSync();
+            return;
+        }
+
+        visualImageDisplay.src = url;
     }
 
     function resetView() {
+        if (viewerState.maximized) {
+            setMaximized(false);
+        }
+
+        resetViewerTransforms();
         sectionDashboard.classList.add('hidden');
 
         stateLoading.classList.add('hidden');
@@ -568,5 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    setMagnifierEnabled(lensToggle.checked);
+    updateViewerButtons();
     bootstrap();
 });

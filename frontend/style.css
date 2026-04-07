@@ -605,11 +605,176 @@ body {
     gap: 1.5rem;
 }
 
+.image-viewer-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
 .image-viewer-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.viewer-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.viewer-subtitle {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    letter-spacing: 0.03em;
+}
+
+.viewer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(69, 243, 255, 0.12);
+    background:
+        linear-gradient(135deg, rgba(69, 243, 255, 0.08), transparent 58%),
+        rgba(255, 255, 255, 0.02);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.zoom-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.viewer-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 38px;
+    padding: 0.55rem 0.85rem;
+    border-radius: 0.7rem;
+    border: 1px solid rgba(69, 243, 255, 0.15);
+    background: rgba(8, 14, 20, 0.78);
+    color: var(--text-main);
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    transition: var(--trn-fast);
+}
+
+.viewer-action-btn:hover {
+    border-color: rgba(69, 243, 255, 0.5);
+    background: rgba(69, 243, 255, 0.12);
+    transform: translateY(-1px);
+}
+
+.viewer-action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.viewer-action-btn svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-cyan);
+}
+
+.viewer-action-btn.compact {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+}
+
+.viewer-action-btn.zoom-readout {
+    min-width: 74px;
+    padding-inline: 0.8rem;
+    color: var(--accent-cyan);
+}
+
+.lens-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-height: 38px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.025);
+    cursor: pointer;
+    user-select: none;
+}
+
+.lens-control input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.lens-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+    line-height: 1.1;
+}
+
+.lens-copy strong {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.lens-copy small {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+}
+
+.lens-switch {
+    position: relative;
+    width: 46px;
+    height: 26px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: var(--trn-fast);
+    flex-shrink: 0;
+}
+
+.lens-switch-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    transition: var(--trn-fast);
+}
+
+.lens-control input:checked + .lens-switch {
+    background: rgba(69, 243, 255, 0.22);
+    border-color: rgba(69, 243, 255, 0.4);
+    box-shadow: 0 0 16px rgba(69, 243, 255, 0.12);
+}
+
+.lens-control input:checked + .lens-switch .lens-switch-thumb {
+    transform: translateX(20px);
+    background: var(--accent-cyan);
+}
+
+.lens-control:hover {
+    border-color: rgba(69, 243, 255, 0.2);
 }
 
 .image-selector {
@@ -618,6 +783,7 @@ body {
     gap: 0.5rem;
     font-size: 0.85rem;
     color: var(--text-muted);
+    margin-left: auto;
 }
 
 .image-selector select {
@@ -673,21 +839,120 @@ body {
 
 
 .image-display-container {
+    position: relative;
     width: 100%;
-    height: 400px;
-    border-radius: 0.5rem;
+    height: 460px;
+    border-radius: 0.95rem;
     overflow: hidden;
-    background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border-glass);
+    background:
+        radial-gradient(circle at top, rgba(69, 243, 255, 0.08), transparent 46%),
+        #020407;
+    border: 1px solid rgba(69, 243, 255, 0.1);
+    isolation: isolate;
 }
 
-.image-display-container img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+.image-stage-surface {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: center center;
+    will-change: transform;
+    touch-action: none;
+}
+
+.image-stage-surface img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.image-display-container.is-zoomable {
+    cursor: grab;
+}
+
+.image-display-container.is-dragging {
+    cursor: grabbing;
+}
+
+.image-display-container.lens-active {
+    cursor: none;
+}
+
+.viewer-hint {
+    position: absolute;
+    left: 1rem;
+    bottom: 1rem;
+    z-index: 3;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(4, 10, 16, 0.78);
+    border: 1px solid rgba(69, 243, 255, 0.14);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.76rem;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(10px);
+    opacity: 0.88;
+    pointer-events: none;
+}
+
+.magnifier-lens {
+    position: absolute;
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    border: 2px solid rgba(69, 243, 255, 0.75);
+    box-shadow:
+        0 0 0 6px rgba(69, 243, 255, 0.12),
+        0 20px 45px rgba(0, 0, 0, 0.48);
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 4;
+    background-color: rgba(3, 8, 13, 0.95);
+    background-repeat: no-repeat;
+}
+
+.magnifier-lens::after {
+    content: "";
+    position: absolute;
+    inset: 50%;
+    width: 28px;
+    height: 28px;
+    margin-left: -14px;
+    margin-top: -14px;
+    border-radius: 50%;
+    border: 1px solid rgba(69, 243, 255, 0.6);
+    box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.06);
+}
+
+.magnifier-lens-inner {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.08);
+}
+
+.image-viewer-card.is-maximized {
+    position: fixed;
+    inset: 1rem;
+    z-index: 50;
+    background: rgba(7, 10, 15, 0.94);
+    border-color: rgba(69, 243, 255, 0.16);
+    box-shadow:
+        0 0 0 999px rgba(2, 5, 8, 0.82),
+        0 32px 80px rgba(0, 0, 0, 0.55);
+}
+
+.image-viewer-card.is-maximized .image-display-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+}
+
+.viewer-maximized {
+    overflow: hidden;
 }
 
 /* Table */
@@ -802,5 +1067,71 @@ tbody tr:hover {
 
     .history-metrics {
         justify-content: flex-start;
+    }
+
+    .viewer-toolbar {
+        align-items: stretch;
+    }
+
+    .image-selector {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+    }
+
+    .image-selector select {
+        flex: 1;
+        max-width: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .image-viewer-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .viewer-action-btn {
+        width: 100%;
+    }
+
+    .zoom-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .zoom-controls .viewer-action-btn.compact {
+        width: 44px;
+        flex: 0 0 44px;
+    }
+
+    .viewer-action-btn.zoom-readout {
+        flex: 1;
+    }
+
+    .lens-control {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .image-display-container {
+        height: 320px;
+    }
+
+    .magnifier-lens {
+        width: 132px;
+        height: 132px;
+    }
+
+    .viewer-hint {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        border-radius: 0.8rem;
+        white-space: normal;
+    }
+
+    .image-viewer-card.is-maximized {
+        inset: 0.5rem;
     }
 }
