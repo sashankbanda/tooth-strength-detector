@@ -21,6 +21,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRefreshHistory = document.getElementById('refresh-history-btn');
     const historyList = document.getElementById('history-list');
     const historyEmpty = document.getElementById('history-empty');
+    const btnPreviewPdf = document.getElementById('preview-pdf-btn');
+    const btnPreviewCsv = document.getElementById('preview-csv-btn');
+    const btnDownloadPdf = document.getElementById('download-pdf-btn');
+    const btnDownloadCsv = document.getElementById('download-csv-btn');
+    const plotStageCard = document.getElementById('plot-stage-card');
+    const plotStrengthCard = document.getElementById('plot-strength-card');
+    const plotStageImage = document.getElementById('plot-stage-dist');
+    const plotStrengthImage = document.getElementById('plot-strength-dist');
+    const assetPreviewModal = document.getElementById('asset-preview-modal');
+    const assetPreviewBody = document.getElementById('asset-preview-body');
+    const assetPreviewTitle = document.getElementById('asset-preview-title');
+    const assetPreviewEyebrow = document.getElementById('asset-preview-eyebrow');
+    const assetPreviewDescription = document.getElementById('asset-preview-description');
+    const assetPreviewDownload = document.getElementById('asset-preview-download');
+    const assetPreviewClose = document.getElementById('asset-preview-close');
 
     const userChip = document.getElementById('user-chip');
     const userAvatar = document.getElementById('user-avatar');
@@ -47,6 +62,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentImages = [];
     let currentIndex = 0;
     let reportsByImage = {};
+    let currentArtifacts = {
+        stagePlotUrl: '',
+        strengthPlotUrl: '',
+        pdfUrl: '',
+        csvUrl: '',
+    };
     const viewerState = {
         scale: 1,
         minScale: 1,
@@ -69,6 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
         pointerY: 0,
         maximized: false,
         syncFrame: null,
+    };
+    const previewState = {
+        open: false,
+        type: '',
+        url: '',
+        title: '',
+        requestId: 0,
     };
 
     function clamp(value, min, max) {
@@ -313,6 +341,214 @@ document.addEventListener('DOMContentLoaded', () => {
         hideMagnifier();
         lucide.createIcons();
         scheduleStageSync();
+    }
+
+    function setPreviewButtonState(button, enabled) {
+        button.disabled = !enabled;
+        button.setAttribute('aria-disabled', String(!enabled));
+    }
+
+    function setDownloadLinkState(link, enabled) {
+        link.classList.toggle('is-disabled', !enabled);
+        link.setAttribute('aria-disabled', String(!enabled));
+        if (!enabled) {
+            link.setAttribute('href', '#');
+        }
+    }
+
+    function clearPreviewBody() {
+        assetPreviewBody.innerHTML = '';
+    }
+
+    function closeAssetPreview() {
+        previewState.open = false;
+        previewState.type = '';
+        previewState.url = '';
+        previewState.title = '';
+        assetPreviewModal.classList.add('hidden');
+        assetPreviewModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('asset-preview-open');
+        clearPreviewBody();
+    }
+
+    function renderImagePreview(url, title) {
+        assetPreviewBody.innerHTML = `
+            <div class="asset-preview-frame image">
+                <img src="${url}" alt="${title}" />
+            </div>
+        `;
+    }
+
+    function renderPdfPreview(url) {
+        assetPreviewBody.innerHTML = `
+            <div class="asset-preview-frame pdf">
+                <iframe src="${url}#view=FitH" title="PDF report preview"></iframe>
+            </div>
+        `;
+    }
+
+    function parseCsvRows(csvText) {
+        const rows = [];
+        let row = [];
+        let value = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < csvText.length; i += 1) {
+            const char = csvText[i];
+            const next = csvText[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && next === '"') {
+                    value += '"';
+                    i += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (char === ',' && !inQuotes) {
+                row.push(value);
+                value = '';
+                continue;
+            }
+
+            if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (char === '\r' && next === '\n') {
+                    i += 1;
+                }
+                row.push(value);
+                if (row.some((cell) => cell.length > 0)) {
+                    rows.push(row);
+                }
+                row = [];
+                value = '';
+                continue;
+            }
+
+            value += char;
+        }
+
+        if (value.length > 0 || row.length > 0) {
+            row.push(value);
+            if (row.some((cell) => cell.length > 0)) {
+                rows.push(row);
+            }
+        }
+
+        return rows;
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    async function renderCsvPreview(url, requestId) {
+        assetPreviewBody.innerHTML = `
+            <div class="asset-preview-loading">
+                <div class="spinner compact"></div>
+                <p>Loading CSV preview...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(url, {
+                headers: { Accept: 'text/csv' },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load CSV preview.');
+            }
+
+            const csvText = await response.text();
+            if (!previewState.open || previewState.requestId !== requestId || previewState.type !== 'csv' || previewState.url !== url) {
+                return;
+            }
+            const rows = parseCsvRows(csvText);
+
+            if (!rows.length) {
+                assetPreviewBody.innerHTML = '<div class="asset-preview-empty">CSV file is empty.</div>';
+                return;
+            }
+
+            const headers = rows[0];
+            const dataRows = rows.slice(1);
+            const limitedRows = dataRows.slice(0, 200);
+            const tableHead = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+            const tableBody = limitedRows.map((row) => {
+                const cells = headers.map((_, index) => `<td>${escapeHtml(row[index] ?? '')}</td>`).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+
+            assetPreviewBody.innerHTML = `
+                <div class="asset-preview-frame csv">
+                    <div class="asset-preview-meta">
+                        <span>${dataRows.length} rows</span>
+                        <span>${headers.length} columns</span>
+                        ${dataRows.length > limitedRows.length ? `<span>Showing first ${limitedRows.length}</span>` : ''}
+                    </div>
+                    <div class="asset-preview-table-wrap">
+                        <table class="asset-preview-table">
+                            <thead>
+                                <tr>${tableHead}</tr>
+                            </thead>
+                            <tbody>
+                                ${tableBody}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            if (!previewState.open || previewState.requestId !== requestId || previewState.type !== 'csv' || previewState.url !== url) {
+                return;
+            }
+            assetPreviewBody.innerHTML = `
+                <div class="asset-preview-empty">
+                    ${escapeHtml(error.message || 'Unable to preview this CSV file.')}
+                </div>
+            `;
+        }
+    }
+
+    async function openAssetPreview({ type, url, title, description = '' }) {
+        if (!url) {
+            alert('This asset is not available yet.');
+            return;
+        }
+
+        previewState.open = true;
+        previewState.type = type;
+        previewState.url = url;
+        previewState.title = title;
+        previewState.requestId += 1;
+        const requestId = previewState.requestId;
+
+        assetPreviewEyebrow.textContent = type === 'plot' ? 'Visualization Preview' : 'Report Preview';
+        assetPreviewTitle.textContent = title;
+        assetPreviewDescription.textContent = description;
+        assetPreviewDownload.href = url;
+        assetPreviewDownload.setAttribute('download', '');
+
+        assetPreviewModal.classList.remove('hidden');
+        assetPreviewModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('asset-preview-open');
+        clearPreviewBody();
+
+        if (type === 'plot') {
+            renderImagePreview(url, title);
+        } else if (type === 'pdf') {
+            renderPdfPreview(url);
+        } else if (type === 'csv') {
+            await renderCsvPreview(url, requestId);
+        }
+
+        lucide.createIcons();
     }
 
     function setAuthMessage(message, isError = false) {
@@ -721,6 +957,51 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleStageSync();
     });
     window.addEventListener('resize', scheduleStageSync);
+    btnPreviewPdf.addEventListener('click', () => {
+        openAssetPreview({
+            type: 'pdf',
+            url: currentArtifacts.pdfUrl,
+            title: 'Full PDF Report',
+            description: 'Review the generated report in-app, then download when ready.',
+        });
+    });
+    btnPreviewCsv.addEventListener('click', () => {
+        openAssetPreview({
+            type: 'csv',
+            url: currentArtifacts.csvUrl,
+            title: 'CSV Export Preview',
+            description: 'Inspect the generated records table before downloading the export.',
+        });
+    });
+    plotStageCard.addEventListener('click', () => {
+        openAssetPreview({
+            type: 'plot',
+            url: currentArtifacts.stagePlotUrl,
+            title: 'Stage Distribution',
+            description: 'Expanded view of the periodontal stage distribution chart.',
+        });
+    });
+    plotStrengthCard.addEventListener('click', () => {
+        openAssetPreview({
+            type: 'plot',
+            url: currentArtifacts.strengthPlotUrl,
+            title: 'Strength Distribution',
+            description: 'Expanded view of the tooth strength distribution chart.',
+        });
+    });
+    assetPreviewClose.addEventListener('click', closeAssetPreview);
+    assetPreviewModal.addEventListener('click', (event) => {
+        if (event.target instanceof HTMLElement && event.target.dataset.closePreview === 'true') {
+            closeAssetPreview();
+        }
+    });
+    [btnDownloadPdf, btnDownloadCsv, assetPreviewDownload].forEach((link) => {
+        link.addEventListener('click', (event) => {
+            if (link.getAttribute('href') === '#') {
+                event.preventDefault();
+            }
+        });
+    });
 
     imageDisplayContainer.addEventListener('wheel', (event) => {
         if (!viewerState.baseWidth) {
@@ -811,6 +1092,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sectionDashboard.classList.contains('hidden')) {
             return;
         }
+        if (e.key === 'Escape' && previewState.open) {
+            closeAssetPreview();
+            return;
+        }
         if (e.key === 'ArrowLeft') {
             navigateTo(currentIndex - 1);
         }
@@ -836,15 +1121,37 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionDashboard.classList.remove('hidden');
 
         const saveNote = data.history_saved ? 'Saved to history' : (currentUser ? 'History save skipped' : 'Guest mode');
+        currentArtifacts = {
+            stagePlotUrl: data.job_id && data.summary.total_teeth ? `/static/output/${data.job_id}/report_plots/stage_distribution.png` : '',
+            strengthPlotUrl: data.job_id && data.summary.total_teeth ? `/static/output/${data.job_id}/report_plots/strength_distribution.png` : '',
+            pdfUrl: data.pdf_url || '',
+            csvUrl: data.csv_url || '',
+        };
+
         document.getElementById('job-id-display').innerText = `Job ID: ${data.job_id.substring(0, 8)} - ${saveNote}`;
-        document.getElementById('download-pdf-btn').href = data.pdf_url || '#';
-        document.getElementById('download-csv-btn').href = data.csv_url || '#';
+        btnDownloadPdf.href = currentArtifacts.pdfUrl || '#';
+        btnDownloadCsv.href = currentArtifacts.csvUrl || '#';
+        setPreviewButtonState(btnPreviewPdf, Boolean(currentArtifacts.pdfUrl));
+        setPreviewButtonState(btnPreviewCsv, Boolean(currentArtifacts.csvUrl));
+        setDownloadLinkState(btnDownloadPdf, Boolean(currentArtifacts.pdfUrl));
+        setDownloadLinkState(btnDownloadCsv, Boolean(currentArtifacts.csvUrl));
+        setPreviewButtonState(plotStageCard, Boolean(currentArtifacts.stagePlotUrl));
+        setPreviewButtonState(plotStrengthCard, Boolean(currentArtifacts.strengthPlotUrl));
 
         document.getElementById('tot-images').innerText = data.summary.total_images;
         document.getElementById('tot-teeth').innerText = data.summary.total_teeth;
 
-        document.getElementById('plot-stage-dist').src = `/static/output/${data.job_id}/report_plots/stage_distribution.png`;
-        document.getElementById('plot-strength-dist').src = `/static/output/${data.job_id}/report_plots/strength_distribution.png`;
+        if (currentArtifacts.stagePlotUrl) {
+            plotStageImage.src = currentArtifacts.stagePlotUrl;
+        } else {
+            plotStageImage.removeAttribute('src');
+        }
+
+        if (currentArtifacts.strengthPlotUrl) {
+            plotStrengthImage.src = currentArtifacts.strengthPlotUrl;
+        } else {
+            plotStrengthImage.removeAttribute('src');
+        }
 
         currentImages = data.images || [];
         currentIndex = 0;
@@ -925,6 +1232,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetView() {
+        closeAssetPreview();
+
         if (viewerState.maximized) {
             setMaximized(false);
         }
@@ -990,5 +1299,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setMagnifierEnabled(lensToggle.checked);
     updateViewerButtons();
+    setPreviewButtonState(btnPreviewPdf, false);
+    setPreviewButtonState(btnPreviewCsv, false);
+    setPreviewButtonState(plotStageCard, false);
+    setPreviewButtonState(plotStrengthCard, false);
+    setDownloadLinkState(btnDownloadPdf, false);
+    setDownloadLinkState(btnDownloadCsv, false);
     bootstrap();
 });

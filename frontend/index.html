@@ -105,12 +105,22 @@
                         <p class="subtitle" id="job-id-display">Job ID: ---</p>
                     </div>
                     <div class="header-actions">
-                        <a href="#" id="download-pdf-btn" class="btn primary-btn" target="_blank">
-                            <i data-lucide="file-text"></i> Download Full PDF Report
-                        </a>
-                        <a href="#" id="download-csv-btn" class="btn secondary-btn" target="_blank">
-                            <i data-lucide="download"></i> Export CSV
-                        </a>
+                        <div class="report-action-group">
+                            <button id="preview-pdf-btn" class="btn secondary-btn" type="button">
+                                <i data-lucide="eye"></i> Preview PDF
+                            </button>
+                            <a href="#" id="download-pdf-btn" class="btn primary-btn" target="_blank" download>
+                                <i data-lucide="file-text"></i> Download Full PDF Report
+                            </a>
+                        </div>
+                        <div class="report-action-group">
+                            <button id="preview-csv-btn" class="btn secondary-btn" type="button">
+                                <i data-lucide="table-properties"></i> Preview CSV
+                            </button>
+                            <a href="#" id="download-csv-btn" class="btn secondary-btn" target="_blank" download>
+                                <i data-lucide="download"></i> Export CSV
+                            </a>
+                        </div>
                         <button id="reset-btn" class="btn outline-btn">
                             <i data-lucide="house"></i> Back Home
                         </button>
@@ -136,14 +146,30 @@
 
                         <!-- Plot 1 -->
                         <div class="glass-card plot-card">
-                            <h4 class="card-title">Stage Distribution</h4>
-                            <img id="plot-stage-dist" src="" alt="Stage Distribution" />
+                            <button id="plot-stage-card" class="plot-preview-trigger" type="button">
+                                <div class="plot-card-header">
+                                    <h4 class="card-title">Stage Distribution</h4>
+                                    <span class="plot-card-cta">
+                                        <i data-lucide="expand"></i>
+                                        Preview
+                                    </span>
+                                </div>
+                                <img id="plot-stage-dist" src="" alt="Stage Distribution" />
+                            </button>
                         </div>
                         
                         <!-- Plot 2 -->
                         <div class="glass-card plot-card">
-                            <h4 class="card-title">Strength Distribution</h4>
-                            <img id="plot-strength-dist" src="" alt="Strength Distribution" />
+                            <button id="plot-strength-card" class="plot-preview-trigger" type="button">
+                                <div class="plot-card-header">
+                                    <h4 class="card-title">Strength Distribution</h4>
+                                    <span class="plot-card-cta">
+                                        <i data-lucide="expand"></i>
+                                        Preview
+                                    </span>
+                                </div>
+                                <img id="plot-strength-dist" src="" alt="Strength Distribution" />
+                            </button>
                         </div>
                     </div>
 
@@ -230,6 +256,29 @@
             </section>
 
         </main>
+    </div>
+
+    <div id="asset-preview-modal" class="asset-preview-modal hidden" aria-hidden="true">
+        <div class="asset-preview-backdrop" data-close-preview="true"></div>
+        <div class="asset-preview-panel" role="dialog" aria-modal="true" aria-labelledby="asset-preview-title">
+            <div class="asset-preview-header">
+                <div class="asset-preview-heading">
+                    <p id="asset-preview-eyebrow" class="asset-preview-eyebrow">Preview</p>
+                    <h3 id="asset-preview-title">Asset Preview</h3>
+                    <p id="asset-preview-description" class="asset-preview-description"></p>
+                </div>
+                <div class="asset-preview-actions">
+                    <a id="asset-preview-download" href="#" class="btn primary-btn" target="_blank" download>
+                        <i data-lucide="download"></i> Download
+                    </a>
+                    <button id="asset-preview-close" class="viewer-action-btn" type="button">
+                        <i data-lucide="x"></i>
+                        <span>Close</span>
+                    </button>
+                </div>
+            </div>
+            <div id="asset-preview-body" class="asset-preview-body"></div>
+        </div>
     </div>
 
     <script src="/static/main.js"></script>
