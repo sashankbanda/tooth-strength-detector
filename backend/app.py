@@ -40,6 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
 processor: Optional[ToothProcessor] = None
 
@@ -116,6 +117,22 @@ async def upload_file(
         )
 
     ensure_runtime_directories()
+
+    # Storage Quota Check
+    from backend.config import STORAGE_QUOTA_MB
+    total_size = 0
+    if OUTPUT_DIR.exists():
+        for path in OUTPUT_DIR.rglob("*"):
+            if path.is_file():
+                total_size += path.stat().st_size
+    
+    total_mb = total_size / (1024 * 1024)
+    if total_mb >= STORAGE_QUOTA_MB:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Storage quota exceeded ({round(total_mb, 1)}MB / {STORAGE_QUOTA_MB}MB). Please delete old analysis history to free up space."
+        )
+
     temp_file_path = TEMP_UPLOAD_DIR / f"{uuid.uuid4()}_{safe_filename}"
 
     try:

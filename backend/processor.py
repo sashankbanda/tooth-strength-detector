@@ -239,7 +239,7 @@ class ToothProcessor:
                 visualized_images.append(
                     {
                         "filename": filename,
-                        "url": f"/static/output/{job_id}/output_visualizations/{filename}",
+                        "url": f"/output/{job_id}/output_visualizations/{filename}",
                     }
                 )
             else:
@@ -258,7 +258,7 @@ class ToothProcessor:
 
             try:
                 df_reports.to_csv(csv_path_abs, index=False)
-                csv_path = f"/static/output/{job_id}/tooth_strength_report.csv"
+                csv_path = f"/output/{job_id}/tooth_strength_report.csv"
             except Exception:
                 logger.exception("Failed to write CSV report for job %s", job_id)
 
@@ -342,7 +342,7 @@ class ToothProcessor:
                     flowables.append(Spacer(1, 0.2 * inch))
 
                 doc.build(flowables)
-                pdf_path = f"/static/output/{job_id}/tooth_strength_report.pdf"
+                pdf_path = f"/output/{job_id}/tooth_strength_report.pdf"
             except Exception:
                 logger.exception("Failed to generate PDF report for job %s", job_id)
 

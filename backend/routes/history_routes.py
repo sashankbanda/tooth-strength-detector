@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.auth import get_current_user
@@ -33,7 +34,7 @@ def _build_session_payload(item: AnalysisSession) -> dict:
     images = [
         {
             "filename": filename,
-            "url": f"/static/output/{item.job_id}/output_visualizations/{filename}",
+            "url": f"/output/{item.job_id}/output_visualizations/{filename}",
         }
         for filename in image_filenames
     ]
@@ -113,3 +114,60 @@ def get_history_session(
         raise HTTPException(status_code=404, detail="Saved analysis session not found.")
 
     return _build_session_payload(item)
+
+
+@router.get("/storage/stats")
+def get_storage_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Calculate the current storage usage of the output directory."""
+    from backend.config import STORAGE_QUOTA_MB
+
+    total_size = 0
+    if OUTPUT_DIR.exists():
+        for path in OUTPUT_DIR.rglob("*"):
+            if path.is_file():
+                total_size += path.stat().st_size
+
+    total_mb = round(total_size / (1024 * 1024), 2)
+    
+    return {
+        "used_mb": total_mb,
+        "quota_mb": STORAGE_QUOTA_MB,
+        "percent": min(100, round((total_mb / STORAGE_QUOTA_MB) * 100, 1)) if STORAGE_QUOTA_MB > 0 else 0
+    }
+
+
+@router.delete("/{job_id}")
+def delete_history_session(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an analysis session from the database and remove its files."""
+    from backend.models import ToothRecord
+    
+    item = db.scalar(
+        select(AnalysisSession)
+        .where(AnalysisSession.user_id == current_user.id, AnalysisSession.job_id == job_id)
+    )
+
+    if item is None:
+        raise HTTPException(status_code=404, detail="Saved analysis session not found.")
+
+    # 1. Delete associated files
+    session_dir = OUTPUT_DIR / job_id
+    if session_dir.exists() and session_dir.is_dir():
+        try:
+            shutil.rmtree(session_dir)
+        except Exception:
+            # Continue even if file deletion fails to maintain DB consistency
+            pass
+
+    # 2. Delete from Database
+    db.execute(delete(ToothRecord).where(ToothRecord.session_id == item.id))
+    db.delete(item)
+    db.commit()
+
+    return Response(status_code=204)

@@ -1430,3 +1430,114 @@ tbody tr:hover {
         inset: 0.5rem;
     }
 }
+
+/* Storage Indicator */
+.storage-indicator {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 140px;
+    padding: 0.25rem 0.5rem;
+}
+
+.storage-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.storage-info svg {
+    width: 12px;
+    height: 12px;
+}
+
+.storage-bar-wrap {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.storage-bar-progress {
+    height: 100%;
+    background: var(--accent-cyan);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.storage-indicator.warning .storage-bar-progress {
+    background: var(--health-warning);
+}
+
+.storage-indicator.danger .storage-bar-progress {
+    background: var(--health-danger);
+    box-shadow: 0 0 10px rgba(255, 77, 77, 0.4);
+}
+
+/* History Delete */
+.history-item-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.history-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-delete-history {
+    background: rgba(255, 77, 77, 0.05);
+    color: var(--health-danger);
+    border: 1px solid rgba(255, 77, 77, 0.15);
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: var(--trn-fast);
+}
+
+.btn-delete-history:hover {
+    background: rgba(255, 77, 77, 0.15);
+    border-color: rgba(255, 77, 77, 0.3);
+    transform: scale(1.05);
+}
+
+.btn-delete-history svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Quota Modal styles */
+.quota-error-alert {
+    background: rgba(255, 77, 77, 0.1);
+    border: 1px solid rgba(255, 77, 77, 0.2);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    animation: slideDown var(--trn-smooth);
+}
+
+.quota-error-alert h3 {
+    color: var(--health-danger);
+    margin-bottom: 0.5rem;
+    font-family: var(--font-display);
+}
+
+.quota-error-alert p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+}

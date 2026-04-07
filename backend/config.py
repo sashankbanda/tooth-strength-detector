@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BASE_DIR / ".env"
 FRONTEND_DIR = BASE_DIR / "frontend"
-OUTPUT_DIR = FRONTEND_DIR / "output"
+OUTPUT_DIR = BASE_DIR / "output"
 TEMP_UPLOAD_DIR = OUTPUT_DIR / "temp_uploads"
+STORAGE_QUOTA_MB = 500
 DATA_DIR = BASE_DIR / "data"
 INDEX_FILE = FRONTEND_DIR / "index.html"
 

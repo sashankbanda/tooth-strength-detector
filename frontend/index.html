@@ -24,6 +24,15 @@
                 <h1>Odonto<span class="highlight">Metrics</span></h1>
             </div>
             <div class="header-right">
+                <div class="storage-indicator hidden" id="global-storage-indicator">
+                    <div class="storage-info">
+                        <i data-lucide="database"></i>
+                        <span id="storage-text">Storage: 0/500 MB</span>
+                    </div>
+                    <div class="storage-bar-wrap">
+                        <div class="storage-bar-progress" id="storage-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
                 <div class="status-indicator">
                     <span class="dot online"></span>
                     <span>Roboflow Engine Ready</span>
@@ -93,7 +102,7 @@
                         </button>
                     </div>
                     <p id="history-empty" class="history-empty">No saved analyses yet.</p>
-                    <ul id="history-list" class="history-list"></ul>
+                    <div id="history-list" class="history-list"></div>
                 </div>
             </section>
 

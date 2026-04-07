@@ -707,6 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('/api/history', {
             headers: getAuthHeaders(),
         });
+        await updateStorageStats();
 
         if (res.status === 401) {
             clearSession();
@@ -742,7 +743,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         renderDashboard(payload);
+        await updateStorageStats();
         sectionDashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function updateStorageStats() {
+        try {
+            const res = await fetch('/api/history/storage/stats', {
+                headers: getAuthHeaders(),
+            });
+            if (!res.ok) return;
+            const stats = await res.json();
+            const indicator = document.getElementById('global-storage-indicator');
+            const text = document.getElementById('storage-text');
+            const fill = document.getElementById('storage-bar-fill');
+
+            if (text) text.textContent = `Storage: ${stats.used_mb} / ${stats.quota_mb} MB`;
+            if (fill) fill.style.width = `${stats.percent}%`;
+            
+            if (indicator) {
+                indicator.classList.remove('hidden', 'warning', 'danger');
+                if (stats.percent > 90) {
+                    indicator.classList.add('danger');
+                } else if (stats.percent > 70) {
+                    indicator.classList.add('warning');
+                }
+            }
+        } catch (err) {
+            console.error('Failed to update storage stats', err);
+        }
+    }
+
+    async function deleteHistoryItem(jobId, event) {
+        if (event) event.stopPropagation();
+        
+        const confirmed = confirm('Are you sure you want to delete this analysis? All associated images and reports will be permanently removed.');
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(`/api/history/${encodeURIComponent(jobId)}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders(),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || 'Failed to delete session.');
+            }
+
+            await loadHistory();
+            await updateStorageStats();
+            
+            const jobDisplay = document.getElementById('job-id-display');
+            if (jobDisplay && jobDisplay.innerText.includes(jobId.substring(0, 8))) {
+                resetView();
+            }
+        } catch (err) {
+            alert(err.message || 'An error occurred during deletion.');
+        }
     }
 
     function renderHistory(items) {
@@ -761,18 +819,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const createdAt = item.created_at ? new Date(item.created_at).toLocaleString() : 'Unknown date';
 
             li.innerHTML = `
-                <div>
+                <div class="history-item-content">
                     <h4>${item.source_filename}</h4>
                     <p>${createdAt}</p>
                 </div>
                 <div class="history-metrics">
                     <span>${item.total_images} images</span>
                     <span>${item.total_teeth} teeth</span>
-                    <span>${item.records_count} records</span>
-                    ${item.csv_url ? `<a href="${item.csv_url}" target="_blank">CSV</a>` : ''}
-                    ${item.pdf_url ? `<a href="${item.pdf_url}" target="_blank">PDF</a>` : ''}
+                    ${item.csv_url ? `<a href="${item.csv_url}" target="_blank" title="Download CSV"><i data-lucide="download"></i></a>` : ''}
+                    ${item.pdf_url ? `<a href="${item.pdf_url}" target="_blank" title="Download PDF"><i data-lucide="file-text"></i></a>` : ''}
+                </div>
+                <div class="history-item-actions">
+                    <button class="btn-delete-history" title="Delete from history">
+                        <i data-lucide="trash-2"></i>
+                    </button>
                 </div>
             `;
+
+            const deleteBtn = li.querySelector('.btn-delete-history');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => deleteHistoryItem(item.job_id, e));
+            }
 
             li.addEventListener('click', async (event) => {
                 if (event.target.closest('a')) {
@@ -886,6 +953,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     showAuthGate();
                     throw new Error('Session expired. Please sign in again.');
                 }
+                if (response.status === 403) {
+                    const data = await response.json().catch(() => ({}));
+                    showQuotaError(data.detail);
+                    throw new Error('quota_exceeded');
+                }
                 if (!response.ok) {
                     const data = await response.json().catch(() => ({}));
                     throw new Error(data.detail || 'Upload failed');
@@ -903,9 +975,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch((err) => {
+                if (err.message === 'quota_exceeded') return;
                 alert('An error occurred: ' + err.message);
                 resetView();
             });
+    }
+
+    function showQuotaError(message) {
+        stateLoading.classList.add('hidden');
+        dropZone.classList.remove('hidden');
+        document.querySelector('.hero-text').classList.remove('hidden');
+        
+        const existing = document.querySelector('.quota-error-alert');
+        if (existing) existing.remove();
+
+        const alertContainer = document.createElement('div');
+        alertContainer.className = 'quota-error-alert';
+        alertContainer.innerHTML = `
+            <i data-lucide="alert-triangle" style="color:var(--health-danger);width:32px;height:32px;margin-bottom:1rem;"></i>
+            <h3>Storage Quota Exceeded</h3>
+            <p>${message || 'You have reached the maximum storage limit.'}</p>
+            <div style="display:flex;gap:1rem;justify-content:center;">
+                <button class="btn secondary-btn" id="manage-storage-shortcut">Manage Storage</button>
+                <button class="btn outline-btn" id="dismiss-quota-error">Dismiss</button>
+            </div>
+        `;
+        
+        sectionUpload.prepend(alertContainer);
+        lucide.createIcons();
+        
+        document.getElementById('manage-storage-shortcut').addEventListener('click', () => {
+            sectionHistory.scrollIntoView({ behavior: 'smooth' });
+        });
+        document.getElementById('dismiss-quota-error').addEventListener('click', () => {
+            alertContainer.remove();
+        });
+        
+        alertContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function navigateTo(index) {
@@ -1112,8 +1218,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saveNote = data.history_saved ? 'Saved to history' : (currentUser ? 'History save skipped' : 'Guest mode');
         currentArtifacts = {
-            stagePlotUrl: data.job_id && data.summary.total_teeth ? `/static/output/${data.job_id}/report_plots/stage_distribution.png` : '',
-            strengthPlotUrl: data.job_id && data.summary.total_teeth ? `/static/output/${data.job_id}/report_plots/strength_distribution.png` : '',
+            stagePlotUrl: data.job_id && data.summary.total_teeth ? `/output/${data.job_id}/report_plots/stage_distribution.png` : '',
+            strengthPlotUrl: data.job_id && data.summary.total_teeth ? `/output/${data.job_id}/report_plots/strength_distribution.png` : '',
             pdfUrl: data.pdf_url || '',
             csvUrl: data.csv_url || '',
         };
