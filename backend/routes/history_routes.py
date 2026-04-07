@@ -1,10 +1,9 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.auth import get_current_user
+from backend.config import OUTPUT_DIR
 from backend.database import get_db
 from backend.models import AnalysisSession, User
 
@@ -16,9 +15,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff"}
 def _build_session_payload(item: AnalysisSession) -> dict:
     records = item.tooth_records or []
 
-    # Resolve from generated visualizations first; fallback to records filenames if needed.
-    project_root = Path(__file__).resolve().parents[2]
-    output_viz_dir = project_root / "frontend" / "output" / item.job_id / "output_visualizations"
+    output_viz_dir = OUTPUT_DIR / item.job_id / "output_visualizations"
 
     image_filenames: list[str] = []
     if output_viz_dir.exists():

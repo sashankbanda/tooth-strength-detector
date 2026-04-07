@@ -5,7 +5,7 @@ Welcome to the **Tooth Strength Detector** dashboard! This full-stack web applic
 ## Prerequisites
 
 Before running the application, make sure you have the following installed on your machine:
-- **Python 3.8+**
+- **Python 3.10+**
 
 ## How to Install and Run
 
@@ -45,12 +45,12 @@ Follow these simple steps from your terminal/command prompt to run the web appli
    ACCESS_TOKEN_EXPIRE_MINUTES=10080
    ```
    - `DATABASE_URL` can point to Neon/PostgreSQL serverless.
-   - If no `DATABASE_URL` is provided, the app falls back to local SQLite.
+   - If no `DATABASE_URL` is provided, the app falls back to a local SQLite database under `data/tooth_app.db`.
 
 5. **Start the Application Server**:
    Once installed, run this command to turn on the FastAPI server locally:
    ```bash
-   uvicorn backend.app:app --reload --port 8000
+   uvicorn backend.app:app --host 127.0.0.1 --port 8000
    ```
    You should see: `Uvicorn running on http://127.0.0.1:8000`
 

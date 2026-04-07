@@ -584,16 +584,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return { Authorization: `Bearer ${authToken}` };
     }
 
-    function ensureCanonicalLocalhost() {
-        if (window.location.hostname !== '127.0.0.1') {
-            return false;
-        }
-
-        const redirectUrl = `${window.location.protocol}//localhost${window.location.port ? `:${window.location.port}` : ''}${window.location.pathname}${window.location.search}${window.location.hash}`;
-        window.location.replace(redirectUrl);
-        return true;
-    }
-
     async function fetchPublicConfig() {
         const res = await fetch('/api/config');
         if (!res.ok) {
@@ -1275,10 +1265,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function bootstrap() {
         try {
-            if (ensureCanonicalLocalhost()) {
-                return;
-            }
-
             await fetchPublicConfig();
             const restored = await restoreSession();
             await initializeGoogleSignIn();

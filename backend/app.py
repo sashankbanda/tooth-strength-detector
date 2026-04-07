@@ -1,45 +1,61 @@
+import logging
+import shutil
+import uuid
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import shutil
-import uuid
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from backend.auth import get_optional_current_user
-from backend.config import GOOGLE_CLIENT_ID
+from backend.config import (
+    CORS_ALLOW_ORIGIN_REGEX,
+    CORS_ALLOW_ORIGINS,
+    GOOGLE_CLIENT_ID,
+    INDEX_FILE,
+    FRONTEND_DIR,
+    OUTPUT_DIR,
+    TEMP_UPLOAD_DIR,
+    ensure_runtime_directories,
+)
 from backend.database import get_db, init_db
 from backend.models import AnalysisSession, ToothRecord, User
 from backend.processor import ToothProcessor
 from backend.routes.google_auth import router as google_auth_router
 from backend.routes.history_routes import router as history_router
 
-app = FastAPI(title="Tooth Strength Detector API")
 
-# Setup CORS
+logger = logging.getLogger(__name__)
+ALLOWED_UPLOAD_EXTENSIONS = (".zip", ".jpg", ".jpeg", ".png")
+
+app = FastAPI(title="Tooth Strength Detector API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_origin_regex=CORS_ALLOW_ORIGIN_REGEX,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
-# Setup directories
-STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-OUTPUT_DIR = os.path.join(STATIC_DIR, "output")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+processor: Optional[ToothProcessor] = None
 
-# Mount static files
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-processor = ToothProcessor(output_dir=OUTPUT_DIR)
+def get_processor() -> ToothProcessor:
+    global processor
+
+    if processor is None:
+        processor = ToothProcessor(output_dir=str(OUTPUT_DIR))
+
+    return processor
 
 
 @app.on_event("startup")
-def on_startup():
+def on_startup() -> None:
+    ensure_runtime_directories()
     init_db()
 
 
@@ -85,77 +101,86 @@ def persist_analysis_session(
 
     db.commit()
 
+
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
-    if not file.filename or not file.filename.lower().endswith(('.zip', '.jpg', '.jpeg', '.png')):
-        raise HTTPException(status_code=400, detail="Invalid file type. Upload a ZIP containing images or an image file (.jpg, .png).")
-        
-    temp_dir = os.path.join(OUTPUT_DIR, "temp_uploads")
-    os.makedirs(temp_dir, exist_ok=True)
-    temp_file_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{file.filename}")
-    
-    # Save the uploaded file
+    safe_filename = Path(file.filename or "").name
+    if not safe_filename or not safe_filename.lower().endswith(ALLOWED_UPLOAD_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Upload a ZIP containing images or an image file (.jpg, .png).",
+        )
+
+    ensure_runtime_directories()
+    temp_file_path = TEMP_UPLOAD_DIR / f"{uuid.uuid4()}_{safe_filename}"
+
     try:
-        with open(temp_file_path, "wb") as buffer:
+        with temp_file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-        
-    is_zip = temp_file_path.lower().endswith('.zip')
-    
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="Failed to save the uploaded file.") from exc
+
+    is_zip = temp_file_path.suffix.lower() == ".zip"
+
     try:
-        # Process the file via our script logic
-        results = processor.process_file(temp_file_path, is_zip=is_zip)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Error processing the file.")
-    finally:
-        # Clean up the original upload
         try:
-            os.remove(temp_file_path)
-        except:
-            pass
+            runtime_processor = get_processor()
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        results = runtime_processor.process_file(str(temp_file_path), is_zip=is_zip)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected processing error for upload %s", safe_filename)
+        raise HTTPException(status_code=500, detail="Error processing the file.") from exc
+    finally:
+        try:
+            temp_file_path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Failed to clean up temporary upload %s", temp_file_path)
+        await file.close()
 
     history_saved = False
     if current_user is not None:
         try:
-            persist_analysis_session(db, current_user, file.filename, results)
+            persist_analysis_session(db, current_user, safe_filename, results)
             history_saved = True
         except Exception:
             db.rollback()
+            logger.exception("Failed to persist analysis session for user %s", current_user.id)
 
     results["history_saved"] = history_saved
     results["is_authenticated"] = current_user is not None
 
     return JSONResponse(content={"status": "success", "data": results})
 
+
 @app.get("/api/config")
-def get_public_config():
+def get_public_config() -> dict:
     return {
         "google_client_id": GOOGLE_CLIENT_ID,
     }
 
 
 @app.get("/favicon.ico", include_in_schema=False)
-def favicon():
-    # Avoid noisy browser 404 logs when no favicon file is provided.
+def favicon() -> Response:
     return Response(status_code=204)
 
+
 @app.get("/")
-async def root():
-    # The actual HTML is served through /static/index.html, but we can redirect / or serve it
-    from fastapi.responses import FileResponse
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+async def root() -> FileResponse:
+    if not INDEX_FILE.exists():
+        raise HTTPException(status_code=404, detail="Frontend entrypoint not found.")
+
+    return FileResponse(str(INDEX_FILE))
 
 
 app.include_router(google_auth_router)
 app.include_router(history_router)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=True)

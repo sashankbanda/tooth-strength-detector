@@ -16,10 +16,16 @@ from backend.models import User
 auth_scheme = HTTPBearer(auto_error=False)
 
 
+def _get_jwt_secret() -> str:
+    if not JWT_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="JWT_SECRET_KEY is not configured on the server.")
+    return JWT_SECRET_KEY
+
+
 def create_access_token(user_id: int, email: str) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": str(user_id), "email": email, "exp": expires_at}
-    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, _get_jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
 def verify_google_credential(credential: str) -> dict:
@@ -45,7 +51,7 @@ def _decode_and_fetch_user(token: str, db: Session) -> User:
     )
 
     try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, _get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
         if user_id is None:
             raise credentials_error
