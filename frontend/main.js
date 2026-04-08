@@ -1030,12 +1030,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startFileUpload(file) {
+        const preprocessToggle = document.getElementById('preprocess-toggle');
+        const preprocessEnabled = preprocessToggle ? preprocessToggle.checked : true;
+        const settingsBar = document.querySelector('.settings-bar');
+
         dropZone.classList.add('hidden');
+        if (settingsBar) settingsBar.classList.add('hidden');
         document.querySelector('.hero-text').classList.add('hidden');
         stateLoading.classList.remove('hidden');
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('preprocess', preprocessEnabled);
 
         fetch('/upload', {
             method: 'POST',
@@ -1437,6 +1443,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         stateLoading.classList.add('hidden');
         dropZone.classList.remove('hidden');
+        const settingsBar = document.querySelector('.settings-bar');
+        if (settingsBar) settingsBar.classList.remove('hidden');
         document.querySelector('.hero-text').classList.remove('hidden');
         fileInput.value = '';
 

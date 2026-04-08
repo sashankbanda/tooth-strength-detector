@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -109,6 +109,7 @@ def persist_analysis_session(
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
+    preprocess: bool = Form(True),
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
@@ -150,7 +151,7 @@ async def upload_file(
         except ValueError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-        results = runtime_processor.process_file(str(temp_file_path), is_zip=is_zip)
+        results = runtime_processor.process_file(str(temp_file_path), is_zip=is_zip, preprocess=preprocess)
     except HTTPException:
         raise
     except ValueError as exc:

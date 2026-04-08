@@ -40,6 +40,34 @@ class ToothProcessor:
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
 
+    def preprocess_image(self, img_bgr: np.ndarray) -> np.ndarray:
+        """Apply noise reduction, contrast enhancement (CLAHE), normalization, and sharpening."""
+        # 1. Noise Removal
+        # GaussianBlur for general noise
+        denoised = cv2.GaussianBlur(img_bgr, (5, 5), 0)
+        # medianBlur for salt-and-pepper noise common in X-rays
+        denoised = cv2.medianBlur(denoised, 5)
+
+        # 2. Contrast Enhancement (CLAHE)
+        # Convert to LAB to enhance luminance without affecting color (though X-rays are BGR here)
+        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        cl = clahe.apply(l)
+
+        enhanced_lab = cv2.merge((cl, a, b))
+        contrast_enhanced = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
+
+        # 3. Image Normalization
+        normalized = cv2.normalize(contrast_enhanced, None, 0, 255, cv2.NORM_MINMAX)
+
+        # 4. Edge Sharpening
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+        sharpened = cv2.filter2D(normalized, -1, kernel)
+
+        return sharpened
+
     def _extract_zip_images(self, file_path: str, destination_dir: str) -> list[str]:
         destination_root = Path(destination_dir).resolve()
         image_paths: list[str] = []
@@ -61,7 +89,7 @@ class ToothProcessor:
 
         return image_paths
 
-    def process_file(self, file_path: str, is_zip: bool = False) -> dict:
+    def process_file(self, file_path: str, is_zip: bool = False, preprocess: bool = True) -> dict:
         """Process a single image file or a ZIP archive of images."""
         if not os.path.exists(file_path):
             raise ValueError("Uploaded file could not be found on the server.")
@@ -91,10 +119,23 @@ class ToothProcessor:
 
         for path in image_paths:
             try:
+                inference_path = path
+
+                # Apply Preprocessing if enabled
+                if preprocess:
+                    original_img = cv2.imread(path)
+                    if original_img is not None:
+                        enhanced_img = self.preprocess_image(original_img)
+                        enhanced_filename = f"enhanced_{os.path.basename(path)}"
+                        enhanced_path = os.path.join(extracted_images_dir, enhanced_filename)
+                        if cv2.imwrite(enhanced_path, enhanced_img):
+                            inference_path = enhanced_path
+                            logger.info("Applied preprocessing to %s", path)
+
                 workflow_result = self.client.run_workflow(
                     workspace_name="shank-b",
                     workflow_id="detect-and-classify-2",
-                    images={"image": path},
+                    images={"image": inference_path},
                 )
             except Exception:
                 logger.exception("Roboflow workflow failed for %s", path)

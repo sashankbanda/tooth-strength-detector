@@ -213,6 +213,11 @@ body {
     animation: fadeIn var(--trn-smooth);
 }
 
+.settings-bar {
+    margin-bottom: 2rem;
+    animation: fadeIn var(--trn-fast);
+}
+
 /* History */
 #history-section {
     margin-bottom: 1.25rem;
