@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const assetPreviewDescription = document.getElementById('asset-preview-description');
     const assetPreviewDownload = document.getElementById('asset-preview-download');
     const assetPreviewClose = document.getElementById('asset-preview-close');
+    const btnInfoMethodology = document.getElementById('info-methodology-btn');
+
 
     const userChip = document.getElementById('user-chip');
     const userAvatar = document.getElementById('user-avatar');
@@ -368,8 +370,10 @@ document.addEventListener('DOMContentLoaded', () => {
         assetPreviewModal.classList.add('hidden');
         assetPreviewModal.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('asset-preview-open');
+        assetPreviewDownload.classList.remove('hidden'); // Ensure it's visible again
         clearPreviewBody();
     }
+
 
     function renderImagePreview(url, title) {
         assetPreviewBody.innerHTML = `
@@ -550,6 +554,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lucide.createIcons();
     }
+
+    function showMethodologyModal() {
+        previewState.open = true;
+        previewState.type = 'methodology';
+        previewState.requestId += 1;
+
+        assetPreviewEyebrow.textContent = 'Methodology & Benchmarks';
+        assetPreviewTitle.textContent = 'Diagnostic Framework';
+        assetPreviewDescription.textContent = 'Understanding the periodontal classification system and underlying calculations.';
+        
+        // Hide download button for methodology
+        assetPreviewDownload.classList.add('hidden');
+        
+        assetPreviewModal.classList.remove('hidden');
+        assetPreviewModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('asset-preview-open');
+
+        assetPreviewBody.innerHTML = `
+            <div class="methodology-content">
+                <div class="methodology-section">
+                    <h4>Primary Formulas</h4>
+                    <div class="formula-grid">
+                        <div class="formula-card">
+                            <span class="label">Radiographic Bone Loss (RBL)</span>
+                            <div class="expr">RBL = (BL / RL) × 100</div>
+                            <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">Where BL is bone loss and RL is root length.</p>
+                        </div>
+                        <div class="formula-card">
+                            <span class="label">Tooth Strength Index</span>
+                            <div class="expr">Strength = 100 - RBL</div>
+                            <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">Normalized scale where 100% is optimal health.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="methodology-section">
+                    <h4>Periodontal Staging Benchmarks</h4>
+                    <table class="benchmark-table">
+                        <thead>
+                            <tr>
+                                <th>Stage</th>
+                                <th>RBL Metric</th>
+                                <th>Clinical Implication</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Stage I</strong></td>
+                                <td>&lt; 15%</td>
+                                <td>Initial periodontitis; early interdental bone loss.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Stage II</strong></td>
+                                <td>15% - 33%</td>
+                                <td>Moderate periodontitis; established attachment loss.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Stage III/IV</strong></td>
+                                <td>&gt; 33%</td>
+                                <td>Severe periodontitis; significant risk of tooth loss.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="methodology-section">
+                    <h4>Health Status Indicators</h4>
+                    <div class="formula-grid">
+                        <div class="formula-card">
+                            <span class="badge healthy" style="margin-bottom:0.5rem;">Optimal</span>
+                            <p style="font-size:0.85rem;">Strength ≥ 75%. Indicates strong structural support and minimal bone loss.</p>
+                        </div>
+                        <div class="formula-card">
+                            <span class="badge warning" style="margin-bottom:0.5rem;">Monitor</span>
+                            <p style="font-size:0.85rem;">Strength 50% - 74%. Moderate bone loss detected; intervention may be required.</p>
+                        </div>
+                        <div class="formula-card">
+                            <span class="badge danger" style="margin-bottom:0.5rem;">Critical</span>
+                            <p style="font-size:0.85rem;">Strength &lt; 50%. Severe bone loss; high risk of periodontal instability.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        lucide.createIcons();
+    }
+
 
     function setAuthMessage(message, isError = false) {
         authMessage.textContent = message || '';
@@ -1088,7 +1180,10 @@ document.addEventListener('DOMContentLoaded', () => {
             description: 'Expanded view of the tooth strength distribution chart.',
         });
     });
+    btnInfoMethodology.addEventListener('click', showMethodologyModal);
     assetPreviewClose.addEventListener('click', closeAssetPreview);
+
+
     assetPreviewModal.addEventListener('click', (event) => {
         if (event.target instanceof HTMLElement && event.target.dataset.closePreview === 'true') {
             closeAssetPreview();

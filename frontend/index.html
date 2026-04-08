@@ -109,10 +109,13 @@
             <!-- Dashboard Section (hidden by default) -->
             <section id="dashboard-section" class="hidden">
                 <div class="dashboard-header">
-                    <div>
+                    <div class="title-with-info">
                         <h2>Analysis Results</h2>
-                        <p class="subtitle" id="job-id-display">Job ID: ---</p>
+                        <button id="info-methodology-btn" class="info-btn" title="View methodology and benchmarks">
+                            <i data-lucide="info"></i>
+                        </button>
                     </div>
+                    <p class="subtitle" id="job-id-display">Job ID: ---</p>
                     <div class="header-actions">
                         <div class="report-action-group">
                             <button id="preview-pdf-btn" class="btn secondary-btn" type="button">

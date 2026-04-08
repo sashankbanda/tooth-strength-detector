@@ -316,6 +316,7 @@ body {
     margin-bottom: 1rem;
     background: linear-gradient(135deg, #FFF 0%, var(--accent-cyan) 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -458,11 +459,43 @@ body {
     margin-bottom: 2rem;
 }
 
+.title-with-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .dashboard-header h2 {
     font-family: var(--font-display);
     font-size: 2.2rem;
     font-weight: 600;
-    margin-bottom: 0.2rem;
+    margin: 0;
+}
+
+.info-btn {
+    background: rgba(69, 243, 255, 0.08);
+    border: 1px solid rgba(69, 243, 255, 0.2);
+    color: var(--accent-cyan);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--trn-fast);
+}
+
+.info-btn:hover {
+    background: rgba(69, 243, 255, 0.18);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(69, 243, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.info-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 .subtitle {
@@ -1540,4 +1573,79 @@ tbody tr:hover {
     color: var(--text-muted);
     font-size: 0.95rem;
     margin-bottom: 1.25rem;
+}
+
+/* Methodology Modal Content */
+.methodology-content {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.methodology-section h4 {
+    font-family: var(--font-display);
+    color: var(--accent-cyan);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    border-left: 3px solid var(--accent-cyan);
+    padding-left: 0.75rem;
+}
+
+.formula-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.formula-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+}
+
+.formula-card .label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.formula-card .expr {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 1.25rem;
+    color: var(--text-main);
+}
+
+.benchmark-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.benchmark-table th {
+    background: rgba(255, 255, 255, 0.05);
+    text-align: left;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.benchmark-table td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
 }
