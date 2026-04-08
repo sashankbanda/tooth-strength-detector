@@ -59,6 +59,7 @@ def _build_session_payload(item: AnalysisSession) -> dict:
         "summary": {
             "total_images": item.total_images,
             "total_teeth": item.total_teeth,
+            "processing_time_ms": item.processing_time_ms,
         },
         "history_saved": True,
         "is_authenticated": True,
@@ -101,6 +102,7 @@ def get_history(
                 "total_teeth": item.total_teeth,
                 "csv_url": item.csv_url,
                 "pdf_url": item.pdf_url,
+                "processing_time_ms": item.processing_time_ms,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "records_count": len(item.tooth_records),
                 "size_mb": _get_dir_size(OUTPUT_DIR / item.job_id),

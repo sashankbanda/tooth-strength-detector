@@ -98,6 +98,7 @@
                 <div id="loading-state" class="hidden glass-card">
                     <div class="spinner"></div>
                     <h3>Processing Diagnostics...</h3>
+                    <div id="process-timer" class="process-timer">0.000s</div>
                     <p>Analyzing morphology, calculating edge geometries, and executing Roboflow inference.</p>
                     <div class="progress-bar-container">
                         <div class="progress-bar"></div>
@@ -146,6 +147,9 @@
                                 <i data-lucide="download"></i> Export CSV
                             </a>
                         </div>
+                        <button id="reprocess-btn" class="btn secondary-btn" title="Re-run analysis with current settings">
+                            <i data-lucide="refresh-cw"></i> Re-analyze
+                        </button>
                         <button id="reset-btn" class="btn outline-btn">
                             <i data-lucide="house"></i> Back Home
                         </button>

@@ -32,6 +32,7 @@ class AnalysisSession(Base):
     source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     total_images: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_teeth: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    processing_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     csv_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     pdf_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

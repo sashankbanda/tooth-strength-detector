@@ -101,6 +101,30 @@ document.addEventListener('DOMContentLoaded', () => {
         requestId: 0,
     };
 
+    let timerInterval = null;
+    let timerStart = 0;
+
+    function startTimer() {
+        const timerEl = document.getElementById('process-timer');
+        if (!timerEl) return;
+        
+        timerStart = Date.now();
+        timerEl.textContent = '0.000s';
+        
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            const elapsed = (Date.now() - timerStart) / 1000;
+            timerEl.textContent = elapsed.toFixed(3) + 's';
+        }, 37);
+    }
+
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
     function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
     }
@@ -921,6 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="history-metrics">
                     <span>${item.total_images} images</span>
                     <span>${item.total_teeth} teeth</span>
+                    ${item.processing_time_ms ? `<span title="Processing duration"><i data-lucide="timer" style="width:12px;height:12px;vertical-align:middle;margin-right:2px;"></i>${(item.processing_time_ms / 1000).toFixed(2)}s</span>` : ''}
                     ${item.csv_url ? `<a href="${item.csv_url}" target="_blank" title="Download CSV"><i data-lucide="download"></i></a>` : ''}
                     ${item.pdf_url ? `<a href="${item.pdf_url}" target="_blank" title="Download PDF"><i data-lucide="file-text"></i></a>` : ''}
                 </div>
@@ -1038,6 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (settingsBar) settingsBar.classList.add('hidden');
         document.querySelector('.hero-text').classList.add('hidden');
         stateLoading.classList.remove('hidden');
+        startTimer();
 
         const formData = new FormData();
         formData.append('file', file);
@@ -1067,6 +1093,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then((result) => {
                 if (result.status === 'success') {
+                    stopTimer();
                     renderDashboard(result.data);
                     if (currentUser) {
                         refreshHistory();
@@ -1076,10 +1103,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch((err) => {
+                stopTimer();
                 if (err.message === 'quota_exceeded') return;
                 alert('An error occurred: ' + err.message);
                 resetView();
             });
+    }
+
+    async function handleReprocess() {
+        if (!currentArtifacts.jobId) {
+            alert('No active session to re-analyze.');
+            return;
+        }
+
+        const preprocessToggle = document.getElementById('preprocess-toggle');
+        const preprocessEnabled = preprocessToggle ? preprocessToggle.checked : true;
+        const settingsBar = document.querySelector('.settings-bar');
+
+        sectionDashboard.classList.add('hidden');
+        if (settingsBar) settingsBar.classList.add('hidden');
+        stateLoading.classList.remove('hidden');
+        startTimer();
+
+        const formData = new FormData();
+        formData.append('preprocess', preprocessEnabled);
+
+        try {
+            const res = await fetch(`/api/reprocess/${encodeURIComponent(currentArtifacts.jobId)}`, {
+                method: 'POST',
+                body: formData,
+                headers: getAuthHeaders(),
+            });
+
+            if (res.status === 401) {
+                clearSession();
+                showAuthGate();
+                throw new Error('Session expired. Please sign in again.');
+            }
+
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(result.detail || 'Reprocessing failed.');
+            }
+
+            stopTimer();
+            if (result.status === 'success') {
+                renderDashboard(result.data);
+                if (currentUser) {
+                    refreshHistory();
+                }
+            } else {
+                throw new Error('Processing error during re-analysis.');
+            }
+        } catch (err) {
+            stopTimer();
+            alert('An error occurred during re-analysis: ' + err.message);
+            sectionDashboard.classList.remove('hidden');
+            stateLoading.classList.add('hidden');
+        }
     }
 
     function showQuotaError(message) {
@@ -1322,13 +1403,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saveNote = data.history_saved ? 'Saved to history' : (currentUser ? 'History save skipped' : 'Guest mode');
         currentArtifacts = {
+            jobId: data.job_id,
             stagePlotUrl: data.job_id && data.summary.total_teeth ? `/output/${data.job_id}/report_plots/stage_distribution.png` : '',
             strengthPlotUrl: data.job_id && data.summary.total_teeth ? `/output/${data.job_id}/report_plots/strength_distribution.png` : '',
             pdfUrl: data.pdf_url || '',
             csvUrl: data.csv_url || '',
         };
 
-        document.getElementById('job-id-display').innerText = `Job ID: ${data.job_id.substring(0, 8)} - ${saveNote}`;
+        const timeStr = data.processing_time_ms ? ` processed in ${(data.processing_time_ms / 1000).toFixed(2)}s` : '';
+        document.getElementById('job-id-display').innerText = `Job ID: ${data.job_id.substring(0, 8)}${timeStr} - ${saveNote}`;
         btnDownloadPdf.href = currentArtifacts.pdfUrl || '#';
         btnDownloadCsv.href = currentArtifacts.csvUrl || '#';
         setPreviewButtonState(btnPreviewPdf, Boolean(currentArtifacts.pdfUrl));
@@ -1459,6 +1542,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnReset.addEventListener('click', resetView);
+    document.getElementById('reprocess-btn').addEventListener('click', handleReprocess);
     btnGuest.addEventListener('click', () => {
         clearSession();
         setAuthMessage('You are continuing as a guest.');

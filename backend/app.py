@@ -1,5 +1,6 @@
 import logging
 import shutil
+import time
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -68,20 +69,42 @@ def persist_analysis_session(
     user: User,
     source_filename: str,
     result_data: dict,
+    processing_time_ms: Optional[int] = None,
 ) -> None:
     summary = result_data.get("summary") or {}
     reports = result_data.get("reports") or []
+    job_id = result_data.get("job_id")
 
-    session = AnalysisSession(
-        user_id=user.id,
-        job_id=result_data.get("job_id", str(uuid.uuid4())),
-        source_filename=source_filename,
-        total_images=int(summary.get("total_images") or 0),
-        total_teeth=int(summary.get("total_teeth") or 0),
-        csv_url=result_data.get("csv_url"),
-        pdf_url=result_data.get("pdf_url"),
-    )
-    db.add(session)
+    # Check if a session already exists (for reprocessing)
+    from sqlalchemy import select
+    session = db.scalar(select(AnalysisSession).where(AnalysisSession.job_id == job_id))
+
+    if session:
+        # Update existing session
+        session.total_images = int(summary.get("total_images") or 0)
+        session.total_teeth = int(summary.get("total_teeth") or 0)
+        session.csv_url = result_data.get("csv_url")
+        session.pdf_url = result_data.get("pdf_url")
+        if processing_time_ms is not None:
+            session.processing_time_ms = processing_time_ms
+        
+        # Clear old records
+        from sqlalchemy import delete
+        db.execute(delete(ToothRecord).where(ToothRecord.session_id == session.id))
+    else:
+        # Create new session
+        session = AnalysisSession(
+            user_id=user.id,
+            job_id=job_id or str(uuid.uuid4()),
+            source_filename=source_filename,
+            total_images=int(summary.get("total_images") or 0),
+            total_teeth=int(summary.get("total_teeth") or 0),
+            processing_time_ms=processing_time_ms,
+            csv_url=result_data.get("csv_url"),
+            pdf_url=result_data.get("pdf_url"),
+        )
+        db.add(session)
+    
     db.flush()
 
     for row in reports:
@@ -145,6 +168,7 @@ async def upload_file(
 
     is_zip = temp_file_path.suffix.lower() == ".zip"
 
+    start_time = time.time()
     try:
         try:
             runtime_processor = get_processor()
@@ -165,11 +189,14 @@ async def upload_file(
         except OSError:
             logger.warning("Failed to clean up temporary upload %s", temp_file_path)
         await file.close()
+    
+    end_time = time.time()
+    processing_time_ms = int((end_time - start_time) * 1000)
 
     history_saved = False
     if current_user is not None:
         try:
-            persist_analysis_session(db, current_user, safe_filename, results)
+            persist_analysis_session(db, current_user, safe_filename, results, processing_time_ms=processing_time_ms)
             history_saved = True
         except Exception:
             db.rollback()
@@ -177,6 +204,50 @@ async def upload_file(
 
     results["history_saved"] = history_saved
     results["is_authenticated"] = current_user is not None
+    results["processing_time_ms"] = processing_time_ms
+
+    return JSONResponse(content={"status": "success", "data": results})
+
+
+@app.post("/api/reprocess/{job_id}")
+async def reprocess_job(
+    job_id: str,
+    preprocess: bool = Form(True),
+    current_user: User = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="Authentication required for reprocessing.")
+
+    # Check if job exists and belongs to user
+    from sqlalchemy import select
+    session = db.scalar(select(AnalysisSession).where(AnalysisSession.job_id == job_id, AnalysisSession.user_id == current_user.id))
+    if not session:
+        raise HTTPException(status_code=404, detail="Analysis session not found.")
+
+    start_time = time.time()
+    try:
+        runtime_processor = get_processor()
+        results = runtime_processor.reprocess_existing_session(job_id, preprocess=preprocess)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Reprocessing failed for job %s", job_id)
+        raise HTTPException(status_code=500, detail="Error reprocessing the session.") from exc
+
+    end_time = time.time()
+    processing_time_ms = int((end_time - start_time) * 1000)
+
+    try:
+        persist_analysis_session(db, current_user, session.source_filename, results, processing_time_ms=processing_time_ms)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to update analysis session after reprocess for job %s", job_id)
+        raise HTTPException(status_code=500, detail="Failed to save reprocessed results.")
+
+    results["history_saved"] = True
+    results["is_authenticated"] = True
+    results["processing_time_ms"] = processing_time_ms
 
     return JSONResponse(content={"status": "success", "data": results})
 

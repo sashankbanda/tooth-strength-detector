@@ -452,6 +452,16 @@ body {
     animation: pulseWidth 2s infinite ease-in-out;
 }
 
+.process-timer {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 1.8rem;
+    color: var(--accent-cyan);
+    margin: 1rem 0;
+    text-shadow: 0 0 15px rgba(69, 243, 255, 0.4);
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
 /* Dashboard Section */
 #dashboard-section {
     animation: slideUp var(--trn-smooth);

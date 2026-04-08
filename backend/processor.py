@@ -114,6 +114,58 @@ class ToothProcessor:
         if not image_paths:
             raise ValueError("No supported images were found in the uploaded file.")
 
+        if not image_paths:
+            raise ValueError("No supported images were found in the uploaded file.")
+
+        return self._run_analysis_pipeline(job_id, job_dir, extracted_images_dir, image_paths, preprocess)
+
+    def reprocess_existing_session(self, job_id: str, preprocess: bool = True) -> dict:
+        """Re-run the analysis on already extracted images in an existing job directory."""
+        job_dir = os.path.join(self.output_dir, job_id)
+        extracted_images_dir = os.path.join(job_dir, "extracted_images")
+
+        if not os.path.exists(extracted_images_dir):
+            raise ValueError(f"Session directory {job_id} or its extracted images could not be found.")
+
+        # Identify images to process
+        image_paths = []
+        for root, _, filenames in os.walk(extracted_images_dir):
+            for filename in filenames:
+                # Do NOT re-process "enhanced_" images we might have created previously
+                if filename.lower().endswith(VALID_IMAGE_EXTENSIONS) and not filename.startswith("enhanced_"):
+                    image_paths.append(os.path.join(root, filename))
+
+        if not image_paths:
+            raise ValueError(f"No original images found in session {job_id}.")
+
+        # Clear old outputs to avoid confusion/duplicates
+        dirs_to_clear = [
+            os.path.join(job_dir, "output_visualizations"),
+            os.path.join(job_dir, "report_plots"),
+        ]
+        for d in dirs_to_clear:
+            if os.path.exists(d):
+                shutil.rmtree(d)
+            os.makedirs(d, exist_ok=True)
+
+        return self._run_analysis_pipeline(job_id, job_dir, extracted_images_dir, image_paths, preprocess)
+
+    def _run_analysis_pipeline(
+        self,
+        job_id: str,
+        job_dir: str,
+        extracted_images_dir: str,
+        image_paths: list[str],
+        preprocess: bool,
+    ) -> dict:
+        """Internal method containing the core analysis steps."""
+        output_viz_dir = os.path.join(job_dir, "output_visualizations")
+        output_plots_dir = os.path.join(job_dir, "report_plots")
+
+        # Ensure directories exist
+        for directory in (output_viz_dir, output_plots_dir):
+            os.makedirs(directory, exist_ok=True)
+
         all_tooth_reports: list[list[dict]] = []
         visualized_images: list[dict] = []
 
