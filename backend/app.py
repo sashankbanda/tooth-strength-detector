@@ -218,9 +218,13 @@ async def upload_file(
         try:
             persist_analysis_session(db, current_user, safe_filename, results, processing_time_ms=processing_time_ms)
             history_saved = True
-        except Exception:
+        except Exception as exc:
             db.rollback()
+            import traceback
+            err_msg = traceback.format_exc()
             logger.exception("Failed to persist analysis session for user %s", current_user.id)
+            results["persist_error"] = str(exc)
+            results["persist_trace"] = err_msg
 
     results["history_saved"] = history_saved
     results["is_authenticated"] = current_user is not None
@@ -273,10 +277,13 @@ async def reprocess_job(
         try:
             persist_analysis_session(db, current_user, session.source_filename, results, processing_time_ms=processing_time_ms)
             history_saved = True
-        except Exception:
+        except Exception as exc:
             db.rollback()
+            import traceback
+            err_msg = traceback.format_exc()
             logger.exception("Failed to update analysis session after reprocess for job %s", job_id)
-            # We don't fail the whole request if DB update fails, but we report it
+            results["persist_error"] = str(exc)
+            results["persist_trace"] = err_msg
     
     results["history_saved"] = history_saved
     results["is_authenticated"] = current_user is not None

@@ -91,32 +91,38 @@ def get_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    safe_limit = max(1, min(limit, 100))
-    sessions = db.scalars(
-        select(AnalysisSession)
-        .options(selectinload(AnalysisSession.tooth_records))
-        .where(AnalysisSession.user_id == current_user.id)
-        .order_by(AnalysisSession.created_at.desc())
-        .limit(safe_limit)
-    ).all()
+    try:
+        safe_limit = max(1, min(limit, 100))
+        sessions = db.scalars(
+            select(AnalysisSession)
+            .options(selectinload(AnalysisSession.tooth_records))
+            .where(AnalysisSession.user_id == current_user.id)
+            .order_by(AnalysisSession.created_at.desc())
+            .limit(safe_limit)
+        ).all()
 
-    return {
-        "items": [
-            {
-                "job_id": item.job_id,
-                "source_filename": item.source_filename,
-                "total_images": item.total_images,
-                "total_teeth": item.total_teeth,
-                "csv_url": item.csv_url,
-                "pdf_url": item.pdf_url,
-                "processing_time_ms": item.processing_time_ms,
-                "created_at": item.created_at.isoformat() if hasattr(item.created_at, 'isoformat') else str(item.created_at) if item.created_at else None,
-                "records_count": len(item.tooth_records),
-                "size_mb": _get_dir_size(OUTPUT_DIR / item.job_id),
-            }
-            for item in sessions
-        ]
-    }
+        return {
+            "items": [
+                {
+                    "job_id": item.job_id,
+                    "source_filename": item.source_filename,
+                    "total_images": item.total_images,
+                    "total_teeth": item.total_teeth,
+                    "csv_url": item.csv_url,
+                    "pdf_url": item.pdf_url,
+                    "processing_time_ms": item.processing_time_ms,
+                    "created_at": item.created_at.isoformat() if hasattr(item.created_at, 'isoformat') else str(item.created_at) if item.created_at else None,
+                    "records_count": len(item.tooth_records),
+                    "size_mb": _get_dir_size(OUTPUT_DIR / item.job_id),
+                }
+                for item in sessions
+            ]
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error("Exception in get_history: %s", error_trace)
+        return Response(content=error_trace, media_type="text/plain", status_code=500)
 
 
 @router.get("/{job_id}")

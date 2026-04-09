@@ -42,21 +42,21 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     
     # Simple migration for Render PSQL to add columns if missing
-    with engine.begin() as conn:
-        from sqlalchemy import text
-        import logging
-        
-        migrations = [
-            "ALTER TABLE analysis_sessions ADD COLUMN total_images INTEGER DEFAULT 0 NOT NULL;",
-            "ALTER TABLE analysis_sessions ADD COLUMN total_teeth INTEGER DEFAULT 0 NOT NULL;",
-            "ALTER TABLE analysis_sessions ADD COLUMN processing_time_ms INTEGER;",
-            "ALTER TABLE analysis_sessions ADD COLUMN csv_url VARCHAR(1024);",
-            "ALTER TABLE analysis_sessions ADD COLUMN pdf_url VARCHAR(1024);"
-        ]
-        
-        for sql in migrations:
-            try:
+    import logging
+    from sqlalchemy import text
+    
+    migrations = [
+        "ALTER TABLE analysis_sessions ADD COLUMN total_images INTEGER DEFAULT 0 NOT NULL;",
+        "ALTER TABLE analysis_sessions ADD COLUMN total_teeth INTEGER DEFAULT 0 NOT NULL;",
+        "ALTER TABLE analysis_sessions ADD COLUMN processing_time_ms INTEGER;",
+        "ALTER TABLE analysis_sessions ADD COLUMN csv_url VARCHAR(1024);",
+        "ALTER TABLE analysis_sessions ADD COLUMN pdf_url VARCHAR(1024);"
+    ]
+    
+    for sql in migrations:
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(sql))
-            except Exception as e:
-                # Expected if column already exists
-                logging.debug("Migration skip/fail (likely column exists): %s", e)
+        except Exception as e:
+            # Expected if column already exists
+            logging.debug("Migration skip/fail (likely column exists): %s", e)
