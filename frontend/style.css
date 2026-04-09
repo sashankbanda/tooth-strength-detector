@@ -214,6 +214,8 @@ body {
 }
 
 .settings-bar {
+    display: flex;
+    justify-content: center;
     margin-bottom: 2rem;
     animation: fadeIn var(--trn-fast);
 }

@@ -43,6 +43,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    return response
+
+
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
@@ -64,6 +73,14 @@ def on_startup() -> None:
     init_db()
 
 
+def _truncate(val: str, max_len: int) -> str:
+    if not val:
+        return ""
+    if len(val) <= max_len:
+        return val
+    return val[:max_len]
+
+
 def persist_analysis_session(
     db: Session,
     user: User,
@@ -75,58 +92,68 @@ def persist_analysis_session(
     reports = result_data.get("reports") or []
     job_id = result_data.get("job_id")
 
+    if not job_id:
+        logger.error("Missing job_id in results, cannot persist session.")
+        return
+
     # Check if a session already exists (for reprocessing)
     from sqlalchemy import select
     session = db.scalar(select(AnalysisSession).where(AnalysisSession.job_id == job_id))
 
-    if session:
-        # Update existing session
-        session.total_images = int(summary.get("total_images") or 0)
-        session.total_teeth = int(summary.get("total_teeth") or 0)
-        session.csv_url = result_data.get("csv_url")
-        session.pdf_url = result_data.get("pdf_url")
-        if processing_time_ms is not None:
-            session.processing_time_ms = processing_time_ms
-        
-        # Clear old records
-        from sqlalchemy import delete
-        db.execute(delete(ToothRecord).where(ToothRecord.session_id == session.id))
-    else:
-        # Create new session
-        session = AnalysisSession(
-            user_id=user.id,
-            job_id=job_id or str(uuid.uuid4()),
-            source_filename=source_filename,
-            total_images=int(summary.get("total_images") or 0),
-            total_teeth=int(summary.get("total_teeth") or 0),
-            processing_time_ms=processing_time_ms,
-            csv_url=result_data.get("csv_url"),
-            pdf_url=result_data.get("pdf_url"),
-        )
-        db.add(session)
-    
-    db.flush()
-
-    for row in reports:
-        fdi_value = row.get("FDI")
-        strength_value = row.get("strength")
-        stage_value = row.get("stage")
-        image_filename = row.get("image_filename") or source_filename
-
-        if fdi_value is None or strength_value is None or stage_value is None:
-            continue
-
-        db.add(
-            ToothRecord(
-                session_id=session.id,
-                image_filename=str(image_filename),
-                fdi=int(fdi_value),
-                strength=float(strength_value),
-                stage=str(stage_value),
+    try:
+        if session:
+            # Update existing session
+            session.total_images = int(summary.get("total_images") or 0)
+            session.total_teeth = int(summary.get("total_teeth") or 0)
+            session.csv_url = _truncate(result_data.get("csv_url"), 1024)
+            session.pdf_url = _truncate(result_data.get("pdf_url"), 1024)
+            if processing_time_ms is not None:
+                session.processing_time_ms = processing_time_ms
+            
+            # Clear old records
+            from sqlalchemy import delete
+            db.execute(delete(ToothRecord).where(ToothRecord.session_id == session.id))
+        else:
+            # Create new session
+            session = AnalysisSession(
+                user_id=user.id,
+                job_id=_truncate(job_id, 64),
+                source_filename=_truncate(source_filename, 255),
+                total_images=int(summary.get("total_images") or 0),
+                total_teeth=int(summary.get("total_teeth") or 0),
+                processing_time_ms=processing_time_ms,
+                csv_url=_truncate(result_data.get("csv_url"), 1024),
+                pdf_url=_truncate(result_data.get("pdf_url"), 1024),
             )
-        )
+            db.add(session)
+        
+        db.flush()
 
-    db.commit()
+        for row in reports:
+            fdi_value = row.get("FDI")
+            strength_value = row.get("strength")
+            stage_value = row.get("stage")
+            image_filename = row.get("image_filename") or source_filename
+
+            if fdi_value is None or strength_value is None or stage_value is None:
+                continue
+
+            db.add(
+                ToothRecord(
+                    session_id=session.id,
+                    image_filename=_truncate(str(image_filename), 255),
+                    fdi=int(fdi_value),
+                    strength=float(strength_value),
+                    stage=_truncate(str(stage_value), 64),
+                )
+            )
+
+        db.commit()
+        logger.info("Successfully persisted analysis session %s for user %s", job_id, user.id)
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Database error while persisting session %s: %s", job_id, exc)
+        raise
 
 
 @app.post("/upload")
@@ -213,18 +240,28 @@ async def upload_file(
 async def reprocess_job(
     job_id: str,
     preprocess: bool = Form(True),
-    current_user: User = Depends(get_optional_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user is None:
-        raise HTTPException(status_code=401, detail="Authentication required for reprocessing.")
+    # Security: Validate job_id to prevent directory traversal
+    if not job_id or ".." in job_id or "/" in job_id or "\\" in job_id:
+        raise HTTPException(status_code=400, detail="Invalid job ID format.")
 
-    # Check if job exists and belongs to user
-    from sqlalchemy import select
-    session = db.scalar(select(AnalysisSession).where(AnalysisSession.job_id == job_id, AnalysisSession.user_id == current_user.id))
-    if not session:
-        raise HTTPException(status_code=404, detail="Analysis session not found.")
-
+    session: Optional[AnalysisSession] = None
+    if current_user is not None:
+        # Check if job exists and belongs to user
+        from sqlalchemy import select
+        session = db.scalar(select(AnalysisSession).where(AnalysisSession.job_id == job_id, AnalysisSession.user_id == current_user.id))
+        if not session:
+            # If it's not in the DB for this user, we don't allow reprocessing (even if folder exists)
+            # as it might belong to another user.
+            raise HTTPException(status_code=404, detail="Analysis session not found.")
+    else:
+        # Guest mode: Just check if the directory exists
+        job_dir = OUTPUT_DIR / job_id
+        if not job_dir.exists() or not job_dir.is_dir():
+             raise HTTPException(status_code=404, detail="Analysis session directory not found.")
+    
     start_time = time.time()
     try:
         runtime_processor = get_processor()
@@ -238,15 +275,18 @@ async def reprocess_job(
     end_time = time.time()
     processing_time_ms = int((end_time - start_time) * 1000)
 
-    try:
-        persist_analysis_session(db, current_user, session.source_filename, results, processing_time_ms=processing_time_ms)
-    except Exception:
-        db.rollback()
-        logger.exception("Failed to update analysis session after reprocess for job %s", job_id)
-        raise HTTPException(status_code=500, detail="Failed to save reprocessed results.")
-
-    results["history_saved"] = True
-    results["is_authenticated"] = True
+    history_saved = False
+    if current_user is not None and session is not None:
+        try:
+            persist_analysis_session(db, current_user, session.source_filename, results, processing_time_ms=processing_time_ms)
+            history_saved = True
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to update analysis session after reprocess for job %s", job_id)
+            # We don't fail the whole request if DB update fails, but we report it
+    
+    results["history_saved"] = history_saved
+    results["is_authenticated"] = current_user is not None
     results["processing_time_ms"] = processing_time_ms
 
     return JSONResponse(content={"status": "success", "data": results})

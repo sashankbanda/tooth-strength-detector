@@ -48,8 +48,22 @@
             </div>
         </header>
 
-        <!-- Main Content -->
+            <!-- Main Content -->
         <main class="app-main">
+
+            <!-- Global Settings (visible during analysis/upload) -->
+            <div class="settings-bar hidden">
+                <label class="lens-control" for="preprocess-toggle">
+                    <input id="preprocess-toggle" type="checkbox" checked />
+                    <span class="lens-switch" aria-hidden="true">
+                        <span class="lens-switch-thumb"></span>
+                    </span>
+                    <span class="lens-copy">
+                        <strong>Advanced Preprocessing</strong>
+                        <small>Enhance X-ray contrast & reduce noise</small>
+                    </span>
+                </label>
+            </div>
 
             <!-- Auth Section -->
             <section id="auth-section" class="section-active">
@@ -69,19 +83,6 @@
                 <div class="hero-text">
                     <h2>Advanced Periodontal Diagnostics.</h2>
                     <p>Upload a standalone X-ray image or a ZIP containing multiple images to evaluate tooth strength and radiographic bone loss instantly.</p>
-                </div>
-
-                <div class="settings-bar">
-                    <label class="lens-control" for="preprocess-toggle">
-                        <input id="preprocess-toggle" type="checkbox" checked />
-                        <span class="lens-switch" aria-hidden="true">
-                            <span class="lens-switch-thumb"></span>
-                        </span>
-                        <span class="lens-copy">
-                            <strong>Advanced Preprocessing</strong>
-                            <small>Enhance X-ray contrast & reduce noise</small>
-                        </span>
-                    </label>
                 </div>
                 
                 <div class="upload-zone" id="drop-zone">

@@ -1,3 +1,4 @@
+import logging
 import shutil
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -11,6 +12,7 @@ from backend.models import AnalysisSession, User
 
 
 router = APIRouter(prefix="/api/history", tags=["history"])
+logger = logging.getLogger(__name__)
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff"}
 
 
@@ -71,10 +73,15 @@ def _build_session_payload(item: AnalysisSession) -> dict:
 def _get_dir_size(directory: Path) -> float:
     """Calculate the total size of a directory in MB."""
     total_size = 0
-    if directory.exists() and directory.is_dir():
-        for path in directory.rglob("*"):
-            if path.is_file():
-                total_size += path.stat().st_size
+    try:
+        if directory.exists() and directory.is_dir():
+            for path in directory.rglob("*"):
+                if path.is_file():
+                    total_size += path.stat().st_size
+    except Exception as exc:
+        logger.error("Error calculating directory size for %s: %s", directory, exc)
+        return 0.0
+
     return round(total_size / (1024 * 1024), 2)
 
 

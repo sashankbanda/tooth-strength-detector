@@ -712,16 +712,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!authToken) {
             return false;
         }
-        const res = await fetch('/api/auth/me', {
-            headers: getAuthHeaders(),
-        });
-        if (!res.ok) {
-            clearSession();
+        try {
+            const res = await fetch('/api/auth/me', {
+                headers: getAuthHeaders(),
+            });
+            
+            if (res.status === 401) {
+                clearSession();
+                return false;
+            }
+
+            if (!res.ok) {
+                // Server error or other issue, but don't force logout
+                return false;
+            }
+
+            const me = await res.json();
+            setCurrentUser(me);
+            return true;
+        } catch (err) {
+            console.error('Failed to restore session:', err);
             return false;
         }
-        const me = await res.json();
-        setCurrentUser(me);
-        return true;
     }
 
     async function waitForGoogleIdentity(timeoutMs = 10000) {
@@ -806,12 +818,18 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionUpload.classList.add('hidden');
         sectionDashboard.classList.add('hidden');
         sectionHistory.classList.add('hidden');
+        
+        const settingsBar = document.querySelector('.settings-bar');
+        if (settingsBar) settingsBar.classList.add('hidden');
     }
 
     function showAppEntry() {
         sectionAuth.classList.add('hidden');
         sectionUpload.classList.remove('hidden');
         sectionHistory.classList.toggle('hidden', !currentUser);
+        
+        const settingsBar = document.querySelector('.settings-bar');
+        if (settingsBar) settingsBar.classList.remove('hidden');
     }
 
     async function loadHistory() {
@@ -1409,6 +1427,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pdfUrl: data.pdf_url || '',
             csvUrl: data.csv_url || '',
         };
+
+        const settingsBar = document.querySelector('.settings-bar');
+        if (settingsBar) settingsBar.classList.remove('hidden');
 
         const timeStr = data.processing_time_ms ? ` processed in ${(data.processing_time_ms / 1000).toFixed(2)}s` : '';
         document.getElementById('job-id-display').innerText = `Job ID: ${data.job_id.substring(0, 8)}${timeStr} - ${saveNote}`;
