@@ -258,7 +258,8 @@ class ToothProcessor:
                         continue
 
                     bone_y = np.argmax(row_sum)
-                    root_y = len(row_sum) - np.argmax(row_sum[::-1])
+                    # FIX: find the last row with ANY edges (bottom of tooth), not the last row with MAX edges
+                    root_y = len(row_sum) - np.argmax(row_sum[::-1] > 0)
                     crown_y = np.argmax(row_sum > 0)
                     root_length = root_y - crown_y
                     bone_loss = bone_y - crown_y
