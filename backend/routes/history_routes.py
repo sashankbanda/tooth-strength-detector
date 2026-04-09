@@ -66,7 +66,7 @@ def _build_session_payload(item: AnalysisSession) -> dict:
         "history_saved": True,
         "is_authenticated": True,
         "source_filename": item.source_filename,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "created_at": item.created_at.isoformat() if hasattr(item.created_at, 'isoformat') else str(item.created_at) if item.created_at else None,
     }
 
 
@@ -110,7 +110,7 @@ def get_history(
                 "csv_url": item.csv_url,
                 "pdf_url": item.pdf_url,
                 "processing_time_ms": item.processing_time_ms,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "created_at": item.created_at.isoformat() if hasattr(item.created_at, 'isoformat') else str(item.created_at) if item.created_at else None,
                 "records_count": len(item.tooth_records),
                 "size_mb": _get_dir_size(OUTPUT_DIR / item.job_id),
             }

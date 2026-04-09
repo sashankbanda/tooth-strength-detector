@@ -45,13 +45,6 @@ app.add_middleware(
 )
 
 
-@app.middleware("http")
-async def add_security_headers(request, call_next):
-    response = await call_next(request)
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    return response
-
-
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
