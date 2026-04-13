@@ -9,6 +9,33 @@ Before running the application, make sure you have the following installed on yo
 
 ## How to Install and Run
 
+### Method 1: Using Docker (Recommended)
+Docker allows you to run this application locally as an isolated container on your laptop.
+
+1. **Install Docker Desktop** on your machine (leave it running in the background).
+2. **Open your Terminal/Command Prompt** and navigate to this folder:
+   ```bash
+   cd path/to/Tooth-strength-detector
+   ```
+3. **Configure environment variables**:
+   Create a `.env` file in the root folder and add your API keys:
+   ```env
+   ROBOFLOW_API_KEY=your_roboflow_key
+   DATABASE_URL=postgresql://...
+   GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+   JWT_SECRET_KEY=your_secret_key
+   ```
+4. **Start the Application Container**:
+   Run the following command to build and start your application:
+   ```bash
+   docker-compose up -d --build
+   ```
+5. **Open the App in your Web Browser**: go to **[http://localhost:8000](http://localhost:8000)**
+
+---
+
+### Method 2: Manual Python Installation
+
 Follow these simple steps from your terminal/command prompt to run the web application.
 
 1. **Open your Terminal/Command Prompt** and navigate to this folder:

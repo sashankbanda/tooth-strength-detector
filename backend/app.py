@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import shutil
 import time
@@ -73,6 +74,12 @@ def _truncate(val: str, max_len: int) -> str:
         return val
     return val[:max_len]
 
+def _anonymize_filename(filename: str) -> str:
+    if not filename:
+        return str(uuid.uuid4())[:12]
+    ext = Path(filename).suffix
+    hash_obj = hashlib.sha256(str(filename).encode())
+    return f"anon_{hash_obj.hexdigest()[:12]}{ext}"
 
 def persist_analysis_session(
     db: Session,
@@ -94,6 +101,7 @@ def persist_analysis_session(
     session = db.scalar(select(AnalysisSession).where(AnalysisSession.job_id == job_id))
 
     try:
+        anon_source = _anonymize_filename(source_filename)
         if session:
             # Update existing session
             session.total_images = int(summary.get("total_images") or 0)
@@ -111,7 +119,7 @@ def persist_analysis_session(
             session = AnalysisSession(
                 user_id=user.id,
                 job_id=_truncate(job_id, 64),
-                source_filename=_truncate(source_filename, 255),
+                source_filename=_truncate(anon_source, 255),
                 total_images=int(summary.get("total_images") or 0),
                 total_teeth=int(summary.get("total_teeth") or 0),
                 processing_time_ms=processing_time_ms,
@@ -131,10 +139,11 @@ def persist_analysis_session(
             if fdi_value is None or strength_value is None or stage_value is None:
                 continue
 
+            anon_img = _anonymize_filename(str(image_filename))
             db.add(
                 ToothRecord(
                     session_id=session.id,
-                    image_filename=_truncate(str(image_filename), 255),
+                    image_filename=_truncate(anon_img, 255),
                     fdi=int(fdi_value),
                     strength=float(strength_value),
                     stage=_truncate(str(stage_value), 64),

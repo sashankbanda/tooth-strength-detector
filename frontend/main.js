@@ -1072,7 +1072,51 @@ document.addEventListener('DOMContentLoaded', () => {
         startFileUpload(file);
     }
 
-    function startFileUpload(file) {
+    async function compressImageForUpload(file) {
+        if (!file.type.startsWith('image/')) {
+            return file; // Return original for ZIPs
+        }
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Edge Node Optimization: Keep high resolution for diagnostic processing, 
+                // but standardize to high-quality JPEG to significantly reduce network payload.
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Ensure transparent backgrounds become white instead of black when converting to JPEG
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                        const newFile = new File([blob], newName, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        resolve(newFile);
+                    } else {
+                        resolve(file);
+                    }
+                }, 'image/jpeg', 0.95);
+            };
+            img.onerror = () => resolve(file);
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function startFileUpload(file) {
         const preprocessToggle = document.getElementById('preprocess-toggle');
         const preprocessEnabled = preprocessToggle ? preprocessToggle.checked : true;
         const settingsBar = document.querySelector('.settings-bar');
@@ -1083,8 +1127,11 @@ document.addEventListener('DOMContentLoaded', () => {
         stateLoading.classList.remove('hidden');
         startTimer();
 
+        // Edge Processing before upload
+        const optimizedFile = await compressImageForUpload(file);
+
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', optimizedFile);
         formData.append('preprocess', preprocessEnabled);
 
         fetch('/upload', {
